@@ -33,7 +33,7 @@ DeepLabV3Plus_Inference::DeepLabV3Plus_Inference(const DeepLabV3Plus_Inference_S
     m_model = torch::jit::load(m_settings.model_path, m_settings.inferenceDeviceType);
 
     // Check settings
-    if(m_settings.Resize != m_settings.strategy && m_settings.SlidingWindow == m_settings.strategy) {
+    if(m_settings.Resize != m_settings.strategy && m_settings.SlidingWindow != m_settings.strategy) {
         logging_error("m_settings.strategy has an unknown value (=" << m_settings.strategy << "). "
                       << "It should be 'Resize'(=" << m_settings.Resize << ").  or 'SlidingWindow'(=" << m_settings.SlidingWindow << "). ");
         return;

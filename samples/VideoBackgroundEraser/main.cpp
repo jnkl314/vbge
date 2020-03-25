@@ -20,8 +20,9 @@
 ////// APPLICATION ARGUMENTS //////
 struct {
     std::string inputPath;
-    std::string outputPath;
     bool useCuda;
+    bool hideDisplay;
+    std::string outputPath;
 
     VBGS::VideoBackgroundSegmentation_Settings vbgs_settings;
 
@@ -44,6 +45,9 @@ int initializeAndParseArguments(int argc, char **argv, CmdArguments& o_cmdArgume
                                                                                           true, "", "string", cmd)));
         tclap_args.push_back(std::shared_ptr<TCLAP::Arg>(new TCLAP::SwitchArg             ("c", "useCuda",
                                                                                           "Use Cuda for inference",
+                                                                                          cmd, false)));
+        tclap_args.push_back(std::shared_ptr<TCLAP::Arg>(new TCLAP::SwitchArg             ("", "hideDisplay",
+                                                                                          "Hide display of source image and result",
                                                                                           cmd, false)));
         tclap_args.push_back(std::shared_ptr<TCLAP::Arg>(new TCLAP::ValueArg<std::string>("o", "outputPath",
                                                                                           "Path to a directory to save result",
@@ -93,9 +97,10 @@ int initializeAndParseArguments(int argc, char **argv, CmdArguments& o_cmdArgume
     // Dispatch arguments value in o_cmdArguments
     uint idx = 0;
     // Fetch custom argument value
-    o_cmdArguments.inputPath  = dynamic_cast<TCLAP::ValueArg<std::string>*>(tclap_args[idx++].get())->getValue();
-    o_cmdArguments.outputPath = dynamic_cast<TCLAP::ValueArg<std::string>*>(tclap_args[idx++].get())->getValue();
-    o_cmdArguments.useCuda    = dynamic_cast<TCLAP::SwitchArg*>            (tclap_args[idx++].get())->getValue();
+    o_cmdArguments.inputPath   = dynamic_cast<TCLAP::ValueArg<std::string>*>(tclap_args[idx++].get())->getValue();
+    o_cmdArguments.useCuda     = dynamic_cast<TCLAP::SwitchArg*>            (tclap_args[idx++].get())->getValue();
+    o_cmdArguments.hideDisplay = dynamic_cast<TCLAP::SwitchArg*>            (tclap_args[idx++].get())->getValue();
+    o_cmdArguments.outputPath  = dynamic_cast<TCLAP::ValueArg<std::string>*>(tclap_args[idx++].get())->getValue();
 
     auto& deeplabv3plus = o_cmdArguments.vbgs_settings.deeplabv3plus_inference;
     deeplabv3plus.model_path                    = dynamic_cast<TCLAP::ValueArg<std::string>*>(tclap_args[idx++].get())->getValue();
@@ -184,15 +189,14 @@ int main(int argc, char **argv)
         noBackgroundImage.setTo(cv::Scalar(0, 255, 0), backgroundMask);
 
         // Display
-        cv::imshow("inputImage", inputImage);
-        cv::imshow("backgroundMask", backgroundMask);
-        cv::imshow("noBackgroundImage", noBackgroundImage);
-
-
-        logging_info("Push ESC or Q to exit");
-        int key = cv::waitKey(1) & 0xff;
-        if(27 == key || 'q' == key) {
-            break;
+        if(false == cmdArguments.hideDisplay) {
+            cv::imshow("inputImage", inputImage);
+            cv::imshow("backgroundMask", backgroundMask);
+            cv::imshow("noBackgroundImage", noBackgroundImage);
+            int key = cv::waitKey(1) & 0xff;
+            if(27 == key || 'q' == key) {
+                break;
+            }
         }
     }
 

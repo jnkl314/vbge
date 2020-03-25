@@ -55,10 +55,6 @@ int VideoBackgroundSegmentation::run(const cv::Mat& i_image, cv::Mat& o_backgrou
         logging_error("i_image does not have 3 channels.");
         return -1;
     }
-    if(CV_32F != i_image.depth()) {
-        logging_error("i_src can only be CV_32FC3 (Depth of 32bits float).");
-        return -1;
-    }
 
     // Actual call to algorithm
     if(0 > m_algo->run(i_image, o_backgroundMask)) {

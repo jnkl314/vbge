@@ -57,9 +57,22 @@ int VideoBackgroundSegmentation_Algo::run(const cv::Mat& i_image, cv::Mat& o_bac
         return -1;
     }
 
-    CV_Assert(CV_32FC3 == i_image.type());
+    cv::Mat imageFloat;
+    if(CV_32F != i_image.depth()) {
+        switch(i_image.depth()) {
+        case CV_8U: i_image.convertTo(imageFloat, CV_32F, 1./255.); break;
+        case CV_16U: i_image.convertTo(imageFloat, CV_32F, 1./65535.); break;
+        default:
+            logging_error("Unsuported input image depth (" << cv::typeToString(i_image.depth()) << "). Supported depths are CV_32F, CV_16U and CV_8U");
+            return -1;
+        }
+    } else {
+        imageFloat = i_image;
+    }
 
-    m_deeplabv3plus_inference.run(i_image, o_backgroundMask);
+    CV_Assert(CV_32FC3 == imageFloat.type());
+
+    m_deeplabv3plus_inference.run(imageFloat, o_backgroundMask);
 
     return 0;
 }
