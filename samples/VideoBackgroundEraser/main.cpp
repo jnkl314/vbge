@@ -54,10 +54,10 @@ int initializeAndParseArguments(int argc, char **argv, CmdArguments& o_cmdArgume
         tclap_args.push_back(std::shared_ptr<TCLAP::Arg>(new TCLAP::ValueArg<int>       ("b", "background_classId",
                                                                                          "ID of the background in the model",
                                                                                          false, 0, "int", cmd)));
-        tclap_args.push_back(std::shared_ptr<TCLAP::Arg>(new TCLAP::ValueArg<int>       ("w", "inferenceSize_width",
+        tclap_args.push_back(std::shared_ptr<TCLAP::Arg>(new TCLAP::ValueArg<int>       ("", "inferenceSize_width",
                                                                                          "Width of the inference for the given model",
                                                                                          false, 513, "int", cmd)));
-        tclap_args.push_back(std::shared_ptr<TCLAP::Arg>(new TCLAP::ValueArg<int>       ("h", "inferenceSize_height",
+        tclap_args.push_back(std::shared_ptr<TCLAP::Arg>(new TCLAP::ValueArg<int>       ("", "inferenceSize_height",
                                                                                          "Height of the inference for the given model",
                                                                                          false, 513, "int", cmd)));
         tclap_args.push_back(std::shared_ptr<TCLAP::Arg>(new TCLAP::SwitchArg             ("s", "useSlidingWindow",
