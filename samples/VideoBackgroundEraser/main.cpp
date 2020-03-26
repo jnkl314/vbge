@@ -193,7 +193,7 @@ int main(int argc, char **argv)
             cv::imshow("inputImage", inputImage);
             cv::imshow("foregroundMask", foregroundMask);
             cv::imshow("noBackgroundImage", noBackgroundImage);
-            int key = cv::waitKey(1) & 0xff;
+            int key = cv::waitKey(0) & 0xff;
             if(27 == key || 'q' == key) {
                 break;
             }

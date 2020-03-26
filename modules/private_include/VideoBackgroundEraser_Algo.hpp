@@ -62,6 +62,13 @@ private:
     // Members
     DeepLabV3Plus_Inference m_deeplabv3plus_inference;
 
+    cv::Mat m_image_prev;
+    cv::Ptr<cv::DISOpticalFlow> m_optFLow;
+    std::list<cv::Mat> m_detections_history;
+    cv::Mat m_statusMap;
+    cv::Mat m_flow;
+    cv::Mat m_mapXY;
+
 
 };
 

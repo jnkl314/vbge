@@ -37,6 +37,8 @@ VideoBackgroundEraser_Algo::VideoBackgroundEraser_Algo(const VideoBackgroundEras
         return;
     }
 
+    m_optFLow = cv::DISOpticalFlow::create(cv::DISOpticalFlow::PRESET_MEDIUM);
+
     m_isInitialized = true;
 }
 
@@ -48,7 +50,6 @@ VideoBackgroundEraser_Algo::~VideoBackgroundEraser_Algo()
 bool VideoBackgroundEraser_Algo::get_isInitialized() {
     return m_isInitialized;
 }
-
 
 int VideoBackgroundEraser_Algo::run(const cv::Mat& i_image, cv::Mat& o_foregroundMask)
 {
@@ -76,19 +77,16 @@ int VideoBackgroundEraser_Algo::run(const cv::Mat& i_image, cv::Mat& o_foregroun
     cv::Mat backgroundMask;
     m_deeplabv3plus_inference.run(imageFloat, backgroundMask);
 
+
     cv::Mat image_uint8;
     imageFloat.convertTo(image_uint8, CV_8U, 255.);
     cv::cvtColor(image_uint8, image_uint8, cv::COLOR_BGR2GRAY);
-//    cv::resize(image, image, cv::Size(), 0.5, 0.5);
-//    cv::resize(backgroundMask, backgroundMask, cv::Size(), 0.5, 0.5, cv::INTER_NEAREST);
     cv::Mat foregroundDetection = 0 == backgroundMask;
 
 
     cv::erode(foregroundDetection, foregroundDetection, cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(7, 7)), cv::Point(-1, -1), 3);
     cv::dilate(foregroundDetection, foregroundDetection, cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(7, 7)), cv::Point(-1, -1), 3);
 
-    static cv::Mat image_prev;
-    static cv::Ptr<cv::DISOpticalFlow> optFLow = cv::DISOpticalFlow::create(cv::DISOpticalFlow::PRESET_FAST);
     constexpr int nbPQ = 1;
     constexpr int P[nbPQ] = {1};//, 1};
     constexpr int Q[nbPQ] = {3};//, 4};
@@ -96,39 +94,35 @@ int VideoBackgroundEraser_Algo::run(const cv::Mat& i_image, cv::Mat& o_foregroun
     for(int i = 0 ; i < nbPQ ; ++i) {
         sumQ += Q[i];
     }
-    static std::list<cv::Mat> detections_history;
-    static cv::Mat statusMap;
-    static cv::Mat flow;
 
-    if(!image_prev.empty()) {
+    if(!m_image_prev.empty()) {
 
         // Compute optical flow betwen previous and current image
-        optFLow->calc(image_uint8, image_prev, flow);
+        m_optFLow->calc(image_uint8, m_image_prev, m_flow);
 
         // Convert flow to coordinates map
-        cv::Mat mapXY;
-        mapXY.create(flow.size(), flow.type());
-        for(int y = 0 ; y < flow.rows ; ++y) {
-            for(int x = 0 ; x < flow.cols ; ++x) {
-                auto& f = flow.at<cv::Vec2f>(y, x);
-                mapXY.at<cv::Vec2f>(y, x) = {f(0) + x, f(1) + y};
+        m_mapXY.create(m_flow.size(), m_flow.type());
+        for(int y = 0 ; y < m_flow.rows ; ++y) {
+            for(int x = 0 ; x < m_flow.cols ; ++x) {
+                auto& f = m_flow.at<cv::Vec2f>(y, x);
+                m_mapXY.at<cv::Vec2f>(y, x) = {f(0) + x, f(1) + y};
             }
         }
 
         // Remap past detections onto current referential
-        for(auto& detections : detections_history) {
-            cv::remap(detections, detections, mapXY, cv::noArray(), cv::INTER_NEAREST, cv::BORDER_CONSTANT, cv::Scalar(0));
+        for(auto& detections : m_detections_history) {
+            cv::remap(detections, detections, m_mapXY, cv::noArray(), cv::INTER_NEAREST, cv::BORDER_CONSTANT, cv::Scalar(0));
         }
-        cv::remap(statusMap, statusMap, mapXY, cv::noArray(), cv::INTER_NEAREST, cv::BORDER_CONSTANT, cv::Scalar(0));
+        cv::remap(m_statusMap, m_statusMap, m_mapXY, cv::noArray(), cv::INTER_NEAREST, cv::BORDER_CONSTANT, cv::Scalar(0));
 
         // Populate detections_history with new foregroundDetection
         {
             cv::Mat newDetection = cv::Mat::zeros(foregroundDetection.size(), CV_8U);
             newDetection.setTo(1, foregroundDetection);
-            detections_history.push_front(newDetection);
+            m_detections_history.push_front(newDetection);
             // Ensure we don't have too many detections
-            while(detections_history.size() > sumQ) {
-                detections_history.pop_back();
+            while(m_detections_history.size() > sumQ) {
+                m_detections_history.pop_back();
             }
         }
 
@@ -140,7 +134,7 @@ int VideoBackgroundEraser_Algo::run(const cv::Mat& i_image, cv::Mat& o_foregroun
                                         cv::Mat::zeros(foregroundDetection.size(), CV_8U)};
             int idx = 0;
             int counter = 0;
-            for(auto& detections : detections_history) {
+            for(auto& detections : m_detections_history) {
                 sumDetections[idx] = sumDetections[idx] + detections;
                 if(++counter >= Q[idx]) {
                     ++idx;
@@ -156,22 +150,22 @@ int VideoBackgroundEraser_Algo::run(const cv::Mat& i_image, cv::Mat& o_foregroun
         }
 
         // Update status map
-        statusMap.setTo(1, confirmedDetection);
+        m_statusMap.setTo(1, confirmedDetection);
         // Increase values of statusMap which were once confirmed but have not been seen recently
-        cv::add(statusMap, 1, statusMap, (0 == confirmedDetection) & (0 != statusMap));
+        cv::add(m_statusMap, 1, m_statusMap, (0 == confirmedDetection) & (0 != m_statusMap));
         // Remove the old confirmed values which have not been seen for too long
-        statusMap.setTo(0, statusMap > 15);
+        m_statusMap.setTo(0, m_statusMap > 15);
 
         // Effective foreground is when statusMap is valid and we also add the current foreground detection
-        o_foregroundMask = statusMap | foregroundDetection;
+        o_foregroundMask = (0 != m_statusMap) | foregroundDetection;
 
     } else {
-        statusMap = cv::Mat::zeros(image_uint8.size(), CV_8U);
+        m_statusMap = cv::Mat::zeros(image_uint8.size(), CV_8U);
 
         o_foregroundMask = foregroundDetection;
     }
 
-    image_uint8.copyTo(image_prev);
+    image_uint8.copyTo(m_image_prev);
 
 
     return 0;
