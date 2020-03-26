@@ -15,7 +15,7 @@
 /*============================================================================*/
 /* define                                                                     */
 /*============================================================================*/
-#ifdef VBGS_ENABLE_VERBOSE
+#ifdef VBGE_ENABLE_VERBOSE
 #define logging_error(message) \
     std::cerr << "Error in " << __PRETTY_FUNCTION__ << "\n\t: " << message <<  std::endl;
 #define logging_warning(message) \

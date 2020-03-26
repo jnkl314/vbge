@@ -2,13 +2,13 @@
 /* File Description                                                           */
 /*============================================================================*/
 /**
- * @file        VideoBackgroundSegmentation_Settings.hpp
+ * @file        VideoBackgroundEraser_Settings.hpp
 
  */
 /*============================================================================*/
 
-#ifndef VIDEOBACKGROUNDSEGMENTATION_SETTINGS_HPP_
-#define VIDEOBACKGROUNDSEGMENTATION_SETTINGS_HPP_
+#ifndef VIDEOBACKGROUNDERASER_SETTINGS_HPP_
+#define VIDEOBACKGROUNDERASER_SETTINGS_HPP_
 
 /*============================================================================*/
 /* Includes                                                                   */
@@ -20,12 +20,12 @@
 /*============================================================================*/
 /* namespace                                                                  */
 /*============================================================================*/
-namespace VBGS {
+namespace VBGE {
 
-class VideoBackgroundSegmentation_Settings {
+class VideoBackgroundEraser_Settings {
 public:
     DeepLabV3Plus_Inference_Settings deeplabv3plus_inference;
 };
 
-} /* namespace VBGS */
-#endif /* VIDEOBACKGROUNDSEGMENTATION_SETTINGS_HPP_ */
+} /* namespace VBGE */
+#endif /* VIDEOBACKGROUNDERASER_SETTINGS_HPP_ */

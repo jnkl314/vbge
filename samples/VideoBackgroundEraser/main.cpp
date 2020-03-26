@@ -15,7 +15,7 @@
 #include <tclap/CmdLine.h>
 
 #include <Utils_Logging.hpp>
-#include <VideoBackgroundSegmentation.hpp>
+#include <VideoBackgroundEraser.hpp>
 
 ////// APPLICATION ARGUMENTS //////
 struct {
@@ -24,7 +24,7 @@ struct {
     bool hideDisplay;
     std::string outputPath;
 
-    VBGS::VideoBackgroundSegmentation_Settings vbgs_settings;
+    VBGE::VideoBackgroundEraser_Settings vbge_settings;
 
 } typedef CmdArguments;
 
@@ -102,14 +102,14 @@ int initializeAndParseArguments(int argc, char **argv, CmdArguments& o_cmdArgume
     o_cmdArguments.hideDisplay = dynamic_cast<TCLAP::SwitchArg*>            (tclap_args[idx++].get())->getValue();
     o_cmdArguments.outputPath  = dynamic_cast<TCLAP::ValueArg<std::string>*>(tclap_args[idx++].get())->getValue();
 
-    auto& deeplabv3plus = o_cmdArguments.vbgs_settings.deeplabv3plus_inference;
+    auto& deeplabv3plus = o_cmdArguments.vbge_settings.deeplabv3plus_inference;
     deeplabv3plus.model_path                    = dynamic_cast<TCLAP::ValueArg<std::string>*>(tclap_args[idx++].get())->getValue();
     deeplabv3plus.background_classId            = dynamic_cast<TCLAP::ValueArg<int>*>        (tclap_args[idx++].get())->getValue();
     deeplabv3plus.inferenceSize.width           = dynamic_cast<TCLAP::ValueArg<int>*>        (tclap_args[idx++].get())->getValue();
     deeplabv3plus.inferenceSize.height          = dynamic_cast<TCLAP::ValueArg<int>*>        (tclap_args[idx++].get())->getValue();
     deeplabv3plus.strategy                      = true == dynamic_cast<TCLAP::SwitchArg*>            (tclap_args[idx++].get())->getValue() ?
-                VBGS::DeepLabV3Plus_Inference_Settings::SlidingWindow :
-                VBGS::DeepLabV3Plus_Inference_Settings::Resize;
+                VBGE::DeepLabV3Plus_Inference_Settings::SlidingWindow :
+                VBGE::DeepLabV3Plus_Inference_Settings::Resize;
     deeplabv3plus.slidingWindow_overlap.width   = dynamic_cast<TCLAP::ValueArg<int>*>        (tclap_args[idx++].get())->getValue();
     deeplabv3plus.slidingWindow_overlap.height  = dynamic_cast<TCLAP::ValueArg<int>*>        (tclap_args[idx++].get())->getValue();
     deeplabv3plus.inferenceDeviceType           = o_cmdArguments.useCuda ? torch::kCUDA : torch::kCPU;
@@ -132,10 +132,10 @@ int main(int argc, char **argv)
         return EXIT_FAILURE;
     }
 
-    // Create and initialize VideoBackgroundSegmentation
-    std::unique_ptr<VBGS::VideoBackgroundSegmentation> vbgs(new VBGS::VideoBackgroundSegmentation(cmdArguments.vbgs_settings));
-    if(false == vbgs->get_isInitialized()) {
-        logging_error("VBGS::VideoBackgroundSegmentation was not correctly initialized");
+    // Create and initialize VideoBackgroundEraser
+    std::unique_ptr<VBGE::VideoBackgroundEraser> vbge(new VBGE::VideoBackgroundEraser(cmdArguments.vbge_settings));
+    if(false == vbge->get_isInitialized()) {
+        logging_error("VBGE::VideoBackgroundEraser was not correctly initialized");
         return EXIT_FAILURE;
     }
 
@@ -149,7 +149,7 @@ int main(int argc, char **argv)
     }
 
     // Run Segmentation
-    cv::Mat inputImage, backgroundMask;
+    cv::Mat inputImage, foregroundMask;
     int cnt = 0;
     while(true)
     {
@@ -163,10 +163,10 @@ int main(int argc, char **argv)
             logging_info("Image of type " << cv::typeToString(inputImage.type()) << " and size " << inputImage.size());
         }
 
-        // Process background segmentation
-        res = vbgs->run(inputImage, backgroundMask);
+        // Process background segmentation and removal
+        res = vbge->run(inputImage, foregroundMask);
         if(0 > res) {
-            logging_error("VBGS::VideoBackgroundSegmentation::run() failed.");
+            logging_error("VBGE::VideoBackgroundEraser::run() failed.");
             return EXIT_FAILURE;
         }
 
@@ -179,19 +179,19 @@ int main(int argc, char **argv)
             oss << cmdArguments.outputPath << "/" << std::setw(8) << std::setfill('0') << cnt++ << ".png";
             std::string path = oss.str();
             logging_info("Writing : " << path);
-            cv::imwrite(path, backgroundMask);
+            cv::imwrite(path, foregroundMask);
         }
 
 
 
         // Draw
         cv::Mat noBackgroundImage = inputImage.clone();
-        noBackgroundImage.setTo(cv::Scalar(0, 255, 0), backgroundMask);
+        noBackgroundImage.setTo(cv::Scalar(0, 255, 0), 0 == foregroundMask);
 
         // Display
         if(false == cmdArguments.hideDisplay) {
             cv::imshow("inputImage", inputImage);
-            cv::imshow("backgroundMask", backgroundMask);
+            cv::imshow("foregroundMask", foregroundMask);
             cv::imshow("noBackgroundImage", noBackgroundImage);
             int key = cv::waitKey(1) & 0xff;
             if(27 == key || 'q' == key) {
@@ -202,7 +202,7 @@ int main(int argc, char **argv)
 
 
     // Manually reset (and delete content of) pointer
-    vbgs.reset();
+    vbge.reset();
 
     return res;
 }

@@ -19,7 +19,7 @@
 /*============================================================================*/
 /* namespace                                                                  */
 /*============================================================================*/
-namespace VBGS {
+namespace VBGE {
 
 class DeepLabV3Plus_Inference_Settings {
 public:
@@ -36,5 +36,5 @@ public:
     torch::DeviceType inferenceDeviceType = torch::kCPU;
 };
 
-} /* namespace VBGS */
+} /* namespace VBGE */
 #endif /* DEEPLABV3PLUS_INFERENCE_SETTINGS_HPP_ */

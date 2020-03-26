@@ -2,13 +2,13 @@
 /* File Description                                                           */
 /*============================================================================*/
 /**
- * @file        VideoBackgroundSegmentation_Algo.hpp
+ * @file        VideoBackgroundEraser_Algo.hpp
 
  */
 /*============================================================================*/
 
-#ifndef VIDEOBACKGROUNDSEGMENTATION_ALGO_HPP_
-#define VIDEOBACKGROUNDSEGMENTATION_ALGO_HPP_
+#ifndef VIDEOBACKGROUNDERASER_ALGO_HPP_
+#define VIDEOBACKGROUNDERASER_ALGO_HPP_
 
 /*============================================================================*/
 /* Includes                                                                   */
@@ -17,7 +17,7 @@
 #include <torch/script.h>
 
 #include "DeepLabV3Plus_Inference.hpp"
-#include "VideoBackgroundSegmentation_Settings.hpp"
+#include "VideoBackgroundEraser_Settings.hpp"
 
 /*============================================================================*/
 /* define                                                                     */
@@ -26,10 +26,10 @@
 /*============================================================================*/
 /* namespace                                                                  */
 /*============================================================================*/
-namespace VBGS {
+namespace VBGE {
 
 
-class VideoBackgroundSegmentation_Algo {
+class VideoBackgroundEraser_Algo {
 public:
 
     /*============================================================================*/
@@ -43,21 +43,21 @@ public:
      *
      */
     /*============================================================================*/
-    VideoBackgroundSegmentation_Algo(const VideoBackgroundSegmentation_Settings& i_settings);
+    VideoBackgroundEraser_Algo(const VideoBackgroundEraser_Settings& i_settings);
 
-    ~VideoBackgroundSegmentation_Algo();
+    ~VideoBackgroundEraser_Algo();
 
     bool get_isInitialized();
 
 
-    int run(const cv::Mat& i_image, cv::Mat& o_backgroundMask);
+    int run(const cv::Mat& i_image, cv::Mat& o_foregroundMask);
 
 private:
     // Misc
     bool m_isInitialized = false;
 
     // Settings
-    VideoBackgroundSegmentation_Settings m_settings;
+    VideoBackgroundEraser_Settings m_settings;
 
     // Members
     DeepLabV3Plus_Inference m_deeplabv3plus_inference;
@@ -65,5 +65,5 @@ private:
 
 };
 
-} /* namespace VBGS */
-#endif /* VIDEOBACKGROUNDSEGMENTATION_ALGO_HPP_ */
+} /* namespace VBGE */
+#endif /* VIDEOBACKGROUNDERASER_ALGO_HPP_ */

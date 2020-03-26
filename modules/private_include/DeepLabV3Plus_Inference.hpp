@@ -25,7 +25,7 @@
 /*============================================================================*/
 /* namespace                                                                  */
 /*============================================================================*/
-namespace VBGS {
+namespace VBGE {
 
 
 class DeepLabV3Plus_Inference {
@@ -80,5 +80,5 @@ private:
 
 };
 
-} /* namespace VBGS */
+} /* namespace VBGE */
 #endif /* DEEPLABV3PLUS_INFERENCE_HPP_ */

@@ -25,7 +25,7 @@
 /*============================================================================*/
 /* namespace                                                                  */
 /*============================================================================*/
-namespace VBGS {
+namespace VBGE {
 
 DeepLabV3Plus_Inference::DeepLabV3Plus_Inference(const DeepLabV3Plus_Inference_Settings& i_settings)
     : m_settings(i_settings)
@@ -215,4 +215,4 @@ void DeepLabV3Plus_Inference::run_window(const cv::Mat& i_image, cv::Mat& o_noBa
     o_noBackgroundMask = cv::max(o_noBackgroundMask, noBackgroundMask_resized);
 }
 
-} /* namespace VBGS */
+} /* namespace VBGE */

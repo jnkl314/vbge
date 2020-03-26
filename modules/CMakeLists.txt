@@ -5,7 +5,7 @@ set(TARGET_NAME ${PROJECT_NAME})
 ######################################
 ########### CMake Options ############
 ######################################
-option(VBGS_WITH_VERBOSE "Enable verbose mode" ON)
+option(VBGE_WITH_VERBOSE "Enable verbose mode" ON)
 
 set(OPENCV_VERSION "" CACHE STRING "OpenCV Version to specify")
 
@@ -58,6 +58,6 @@ set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fpic -Wall")
 ######################################
 ########## Add Definitions ###########
 ######################################
-if(VBGS_WITH_VERBOSE)
-    target_compile_definitions(${TARGET_NAME} PUBLIC VBGS_ENABLE_VERBOSE)
-endif(VBGS_WITH_VERBOSE)
+if(VBGE_WITH_VERBOSE)
+    target_compile_definitions(${TARGET_NAME} PUBLIC VBGE_ENABLE_VERBOSE)
+endif(VBGE_WITH_VERBOSE)

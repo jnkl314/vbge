@@ -2,7 +2,7 @@
 /* File Description                                                           */
 /*============================================================================*/
 /**
- * @file        VideoBackgroundSegmentation.cpp
+ * @file        VideoBackgroundEraser.cpp
 
  */
 /*============================================================================*/
@@ -16,30 +16,30 @@
 
 #include "Utils_Logging.hpp"
 
-#include "VideoBackgroundSegmentation.hpp"
-#include "VideoBackgroundSegmentation_Algo.hpp"
+#include "VideoBackgroundEraser.hpp"
+#include "VideoBackgroundEraser_Algo.hpp"
 
 /*============================================================================*/
 /* namespace                                                                  */
 /*============================================================================*/
-namespace VBGS {
+namespace VBGE {
 
-VideoBackgroundSegmentation::VideoBackgroundSegmentation(const VideoBackgroundSegmentation_Settings& i_settings)
+VideoBackgroundEraser::VideoBackgroundEraser(const VideoBackgroundEraser_Settings& i_settings)
 {
-    m_algo.reset(new VideoBackgroundSegmentation_Algo(i_settings));
+    m_algo.reset(new VideoBackgroundEraser_Algo(i_settings));
 }
 
-VideoBackgroundSegmentation::~VideoBackgroundSegmentation()
+VideoBackgroundEraser::~VideoBackgroundEraser()
 {
     m_algo.reset();
 }
 
-bool VideoBackgroundSegmentation::get_isInitialized()
+bool VideoBackgroundEraser::get_isInitialized()
 {
     return m_algo->get_isInitialized();
 }
 
-int VideoBackgroundSegmentation::run(const cv::Mat& i_image, cv::Mat& o_backgroundMask)
+int VideoBackgroundEraser::run(const cv::Mat& i_image, cv::Mat& o_foregroundMask)
 {
     if(false == m_algo->get_isInitialized()) {
         logging_error("This instance was not correctly initialized.");
@@ -57,7 +57,7 @@ int VideoBackgroundSegmentation::run(const cv::Mat& i_image, cv::Mat& o_backgrou
     }
 
     // Actual call to algorithm
-    if(0 > m_algo->run(i_image, o_backgroundMask)) {
+    if(0 > m_algo->run(i_image, o_foregroundMask)) {
         logging_error("m_algo->run() failed.");
         return -1;
     }
@@ -65,4 +65,4 @@ int VideoBackgroundSegmentation::run(const cv::Mat& i_image, cv::Mat& o_backgrou
     return 0;
 }
 
-} /* namespace VBGS */
+} /* namespace VBGE */

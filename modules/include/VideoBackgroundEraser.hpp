@@ -2,13 +2,13 @@
 /* File Description                                                           */
 /*============================================================================*/
 /**
- * @file        VideoBackgroundSegmentation.hpp
+ * @file        VideoBackgroundEraser.hpp
 
  */
 /*============================================================================*/
 
-#ifndef VIDEOBACKGROUNDSEGMENTATION_HPP_
-#define VIDEOBACKGROUNDSEGMENTATION_HPP_
+#ifndef VIDEOBACKGROUNDERASER_HPP_
+#define VIDEOBACKGROUNDERASER_HPP_
 
 /*============================================================================*/
 /* Includes                                                                   */
@@ -16,7 +16,7 @@
 #include <opencv2/opencv.hpp>
 #include <torch/script.h>
 
-#include "VideoBackgroundSegmentation_Settings.hpp"
+#include "VideoBackgroundEraser_Settings.hpp"
 
 /*============================================================================*/
 /* define                                                                     */
@@ -25,13 +25,13 @@
 /*============================================================================*/
 /* namespace                                                                  */
 /*============================================================================*/
-namespace VBGS {
+namespace VBGE {
 
 
 /*============================================================================*/
 /* Forward Declaration                                                        */
 /*============================================================================*/
-class VideoBackgroundSegmentation_Algo;
+class VideoBackgroundEraser_Algo;
 
 /*============================================================================*/
 /* Class Description                                                       */
@@ -41,15 +41,15 @@ class VideoBackgroundSegmentation_Algo;
  *
  */
 /*============================================================================*/
-class VideoBackgroundSegmentation {
+class VideoBackgroundEraser {
 private:
-    std::unique_ptr<VideoBackgroundSegmentation_Algo> m_algo;
+    std::unique_ptr<VideoBackgroundEraser_Algo> m_algo;
 
 public:
 
 
-    VideoBackgroundSegmentation(const VideoBackgroundSegmentation_Settings& i_settings);
-    virtual ~VideoBackgroundSegmentation();
+    VideoBackgroundEraser(const VideoBackgroundEraser_Settings& i_settings);
+    virtual ~VideoBackgroundEraser();
 
     bool get_isInitialized();
 
@@ -63,10 +63,10 @@ public:
      *
      */
     /*============================================================================*/
-    int run(const cv::Mat& i_image, cv::Mat& o_backgroundMask);
+    int run(const cv::Mat& i_image, cv::Mat& o_foregroundMask);
 
 
 };
 
-} /* namespace VBGS */
-#endif /* VIDEOBACKGROUNDSEGMENTATION_HPP_ */
+} /* namespace VBGE */
+#endif /* VIDEOBACKGROUNDERASER_HPP_ */
