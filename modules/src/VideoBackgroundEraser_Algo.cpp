@@ -89,9 +89,9 @@ int VideoBackgroundEraser_Algo::run(const cv::Mat& i_image, cv::Mat& o_foregroun
 
     static cv::Mat image_prev;
     static cv::Ptr<cv::DISOpticalFlow> optFLow = cv::DISOpticalFlow::create(cv::DISOpticalFlow::PRESET_FAST);
-    constexpr int nbPQ = 2;
-    constexpr int P[nbPQ] = {1, 1};
-    constexpr int Q[nbPQ] = {3, 4};
+    constexpr int nbPQ = 1;
+    constexpr int P[nbPQ] = {1};//, 1};
+    constexpr int Q[nbPQ] = {3};//, 4};
     uint sumQ = 0;
     for(int i = 0 ; i < nbPQ ; ++i) {
         sumQ += Q[i];
@@ -167,6 +167,8 @@ int VideoBackgroundEraser_Algo::run(const cv::Mat& i_image, cv::Mat& o_foregroun
 
     } else {
         statusMap = cv::Mat::zeros(image_uint8.size(), CV_8U);
+
+        o_foregroundMask = foregroundDetection;
     }
 
     image_uint8.copyTo(image_prev);
