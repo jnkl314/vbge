@@ -39,7 +39,7 @@ bool VideoBackgroundEraser::get_isInitialized()
     return m_algo->get_isInitialized();
 }
 
-int VideoBackgroundEraser::run(const cv::Mat& i_image, cv::Mat& o_foregroundMask)
+int VideoBackgroundEraser::run(const cv::Mat& i_image, cv::Mat& o_image_withoutBackground)
 {
     if(false == m_algo->get_isInitialized()) {
         logging_error("This instance was not correctly initialized.");
@@ -57,7 +57,7 @@ int VideoBackgroundEraser::run(const cv::Mat& i_image, cv::Mat& o_foregroundMask
     }
 
     // Actual call to algorithm
-    if(0 > m_algo->run(i_image, o_foregroundMask)) {
+    if(0 > m_algo->run(i_image, o_image_withoutBackground)) {
         logging_error("m_algo->run() failed.");
         return -1;
     }

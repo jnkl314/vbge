@@ -1,14 +1,14 @@
-/*============================================================================*/
+﻿/*============================================================================*/
 /* File Description                                                           */
 /*============================================================================*/
 /**
- * @file        VideoBackgroundEraser_Algo.hpp
+ * @file        DeepImageMatting_Inference.hpp
 
  */
 /*============================================================================*/
 
-#ifndef VIDEOBACKGROUNDERASER_ALGO_HPP_
-#define VIDEOBACKGROUNDERASER_ALGO_HPP_
+#ifndef DEEPIMAGEMATTING_INFERENCE_HPP_
+#define DEEPIMAGEMATTING_INFERENCE_HPP_
 
 /*============================================================================*/
 /* Includes                                                                   */
@@ -16,9 +16,7 @@
 #include <opencv2/opencv.hpp>
 #include <torch/script.h>
 
-#include "DeepLabV3Plus_Inference.hpp"
-#include "DeepImageMatting_Inference.hpp"
-#include "VideoBackgroundEraser_Settings.hpp"
+#include "DeepImageMatting_Inference_Settings.hpp"
 
 /*============================================================================*/
 /* define                                                                     */
@@ -30,7 +28,7 @@
 namespace VBGE {
 
 
-class VideoBackgroundEraser_Algo {
+class DeepImageMatting_Inference {
 public:
 
     /*============================================================================*/
@@ -44,37 +42,25 @@ public:
      *
      */
     /*============================================================================*/
-    VideoBackgroundEraser_Algo(const VideoBackgroundEraser_Settings& i_settings);
+    DeepImageMatting_Inference(const DeepImageMatting_Inference_Settings& i_settings);
 
-    ~VideoBackgroundEraser_Algo();
+    ~DeepImageMatting_Inference();
 
     bool get_isInitialized();
 
 
-    int run(const cv::Mat& i_image, cv::Mat& o_image_withoutBackground);
+    int run(const cv::Mat& i_image_rgba, cv::Mat& o_enhanced_image_rgba);
 
 private:
     // Misc
     bool m_isInitialized = false;
 
-    // Settings
-    VideoBackgroundEraser_Settings m_settings;
-
     // Members
-    DeepLabV3Plus_Inference m_deeplabv3plus_inference;
-    cv::Mat m_image_prev;
-    cv::Ptr<cv::DISOpticalFlow> m_optFLow;
-    std::list<cv::Mat> m_detections_history;
-    cv::Mat m_statusMap;
-    cv::Mat m_flow;
-    cv::Mat m_mapXY;
-    DeepImageMatting_Inference m_deepimagematting_inference;
+    torch::jit::script::Module m_model;
 
-    // Methods
-    int temporalManagement(const cv::Mat& i_image_rgb_uint8, const cv::Mat& i_backgroundMask, cv::Mat& o_foregroundMask);
-    void compute_trimap(const cv::Mat& i_image, const cv::Mat& i_foreground, cv::Mat &o_trimap);
-
+    // Settings
+    const DeepImageMatting_Inference_Settings m_settings;
 };
 
 } /* namespace VBGE */
-#endif /* VIDEOBACKGROUNDERASER_ALGO_HPP_ */
+#endif /* DEEPIMAGEMATTING_INFERENCE_HPP_ */

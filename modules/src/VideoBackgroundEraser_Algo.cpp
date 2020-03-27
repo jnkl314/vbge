@@ -29,7 +29,8 @@ namespace VBGE {
 
 VideoBackgroundEraser_Algo::VideoBackgroundEraser_Algo(const VideoBackgroundEraser_Settings &i_settings)
     : m_settings(i_settings),
-      m_deeplabv3plus_inference(m_settings.deeplabv3plus_inference)
+      m_deeplabv3plus_inference(m_settings.deeplabv3plus_inference),
+      m_deepimagematting_inference(m_settings.deepimagematting_inference)
 {
 
     if(false == m_deeplabv3plus_inference.get_isInitialized()) {
@@ -51,7 +52,7 @@ bool VideoBackgroundEraser_Algo::get_isInitialized() {
     return m_isInitialized;
 }
 
-int VideoBackgroundEraser_Algo::run(const cv::Mat& i_image, cv::Mat& o_foregroundMask)
+int VideoBackgroundEraser_Algo::run(const cv::Mat& i_image, cv::Mat& o_image_withoutBackground)
 {
     if(false == get_isInitialized()) {
         logging_error("This instance was not correctly initialized.");
@@ -79,12 +80,29 @@ int VideoBackgroundEraser_Algo::run(const cv::Mat& i_image, cv::Mat& o_foregroun
 
 
     // Run temporal processing to try and keep consistency between successive frames
+    cv::Mat foregroundMask;
     cv::Mat image_rgb_uint8;
     imageFloat.convertTo(image_rgb_uint8, CV_8U, 255.);
-    if(0 > temporalManagement(image_rgb_uint8, backgroundMask, o_foregroundMask)) {
+    if(0 > temporalManagement(image_rgb_uint8, backgroundMask, foregroundMask)) {
         logging_error("temporalManagement() failed.");
         return -1;
     }
+
+    // Generate trimap
+    cv::Mat trimap;
+    compute_trimap(image_rgb_uint8, foregroundMask, trimap);
+    // Convert image rgb with trimap to make a rgba image
+    cv::Mat imageFloat_rgba;
+    {
+        std::vector<cv::Mat> image_rgba_planar;
+        cv::split(imageFloat, image_rgba_planar);
+        image_rgba_planar.push_back(trimap);
+        cv::merge(image_rgba_planar, imageFloat_rgba);
+    }
+
+
+    // Run Deep Image Matting
+    m_deepimagematting_inference.run(imageFloat_rgba, o_image_withoutBackground);
 
 
     return 0;

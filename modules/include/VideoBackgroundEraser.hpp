@@ -63,7 +63,7 @@ public:
      *
      */
     /*============================================================================*/
-    int run(const cv::Mat& i_image, cv::Mat& o_foregroundMask);
+    int run(const cv::Mat& i_image, cv::Mat& o_image_withoutBackground);
 
 
 };

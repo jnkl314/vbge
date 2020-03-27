@@ -55,6 +55,9 @@ int initializeAndParseArguments(int argc, char **argv, CmdArguments& o_cmdArgume
         tclap_args.push_back(std::shared_ptr<TCLAP::Arg>(new TCLAP::ValueArg<std::string>("m", "DeepLabV3PlusModelPath",
                                                                                           "Path to a PyTorch JIT binary .pb containing the trained model DeepLabV3Plus",
                                                                                           true, "", "string", cmd)));
+        tclap_args.push_back(std::shared_ptr<TCLAP::Arg>(new TCLAP::ValueArg<std::string>("n", "DeepImageMattingModelPath",
+                                                                                          "Path to a PyTorch JIT binary .pb containing the trained model DeepImageMatting",
+                                                                                          true, "", "string", cmd)));
         tclap_args.push_back(std::shared_ptr<TCLAP::Arg>(new TCLAP::ValueArg<int>       ("b", "background_classId",
                                                                                          "ID of the background in the model",
                                                                                          false, 0, "int", cmd)));
@@ -103,7 +106,9 @@ int initializeAndParseArguments(int argc, char **argv, CmdArguments& o_cmdArgume
     o_cmdArguments.outputPath  = dynamic_cast<TCLAP::ValueArg<std::string>*>(tclap_args[idx++].get())->getValue();
 
     auto& deeplabv3plus = o_cmdArguments.vbge_settings.deeplabv3plus_inference;
+    auto& deepimagematting = o_cmdArguments.vbge_settings.deepimagematting_inference;
     deeplabv3plus.model_path                    = dynamic_cast<TCLAP::ValueArg<std::string>*>(tclap_args[idx++].get())->getValue();
+    deepimagematting.model_path                 = dynamic_cast<TCLAP::ValueArg<std::string>*>(tclap_args[idx++].get())->getValue();
     deeplabv3plus.background_classId            = dynamic_cast<TCLAP::ValueArg<int>*>        (tclap_args[idx++].get())->getValue();
     deeplabv3plus.inferenceSize.width           = dynamic_cast<TCLAP::ValueArg<int>*>        (tclap_args[idx++].get())->getValue();
     deeplabv3plus.inferenceSize.height          = dynamic_cast<TCLAP::ValueArg<int>*>        (tclap_args[idx++].get())->getValue();
@@ -113,6 +118,7 @@ int initializeAndParseArguments(int argc, char **argv, CmdArguments& o_cmdArgume
     deeplabv3plus.slidingWindow_overlap.width   = dynamic_cast<TCLAP::ValueArg<int>*>        (tclap_args[idx++].get())->getValue();
     deeplabv3plus.slidingWindow_overlap.height  = dynamic_cast<TCLAP::ValueArg<int>*>        (tclap_args[idx++].get())->getValue();
     deeplabv3plus.inferenceDeviceType           = o_cmdArguments.useCuda ? torch::kCUDA : torch::kCPU;
+    deepimagematting.inferenceDeviceType        = deepimagematting.inferenceDeviceType;
 
     return 0;
 }
