@@ -45,7 +45,7 @@ bool DeepImageMatting_Inference::get_isInitialized() {
 }
 
 
-int DeepImageMatting_Inference::run(const cv::Mat& i_image_rgba, cv::Mat& o_enhanced_image_rgba)
+int DeepImageMatting_Inference::run(const cv::Mat& i_image_rgba, cv::Mat& o_alpha_prediction)
 {
     if(false == get_isInitialized()) {
         logging_error("This instance was not correctly initialized.");
@@ -70,12 +70,13 @@ int DeepImageMatting_Inference::run(const cv::Mat& i_image_rgba, cv::Mat& o_enha
     torch::Tensor neuralNet_outputTensor_NCHW = m_model.forward(inputs).toTensor();
 
     // Prepare output
+    o_alpha_prediction.create(i_image_rgba.size(), CV_32F);
     // Permute format NCHW (PyTorch) to NHWC (OpenCV) (no deep copy)
     torch::Tensor neuralNet_outputTensor_NHWC = neuralNet_outputTensor_NCHW.permute({0, 2, 3, 1});
     // Encapsulate o_enhanced_image_rgba in a tensor (no deep copy) with OpenCV format NHWC
-    std::vector<int64_t> dstSize = {1, o_enhanced_image_rgba.rows, o_enhanced_image_rgba.cols, o_enhanced_image_rgba.channels()};
-    std::vector<int64_t> dstStride = {1, static_cast<int64_t>(o_enhanced_image_rgba.step1()), o_enhanced_image_rgba.channels(), 1};
-    torch::Tensor dstTensor_NHWC = torch::from_blob(o_enhanced_image_rgba.data, dstSize, dstStride, torch::kCPU);
+    std::vector<int64_t> dstSize = {1, o_alpha_prediction.rows, o_alpha_prediction.cols, o_alpha_prediction.channels()};
+    std::vector<int64_t> dstStride = {1, static_cast<int64_t>(o_alpha_prediction.step1()), o_alpha_prediction.channels(), 1};
+    torch::Tensor dstTensor_NHWC = torch::from_blob(o_alpha_prediction.data, dstSize, dstStride, torch::kCPU);
     // Copy neuralNet_outputTensor_NHWC to outputTensor_NHWC
     dstTensor_NHWC.copy_(neuralNet_outputTensor_NHWC, true);
 

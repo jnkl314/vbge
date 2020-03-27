@@ -155,7 +155,7 @@ int main(int argc, char **argv)
     }
 
     // Run Segmentation
-    cv::Mat inputImage, foregroundMask;
+    cv::Mat inputImage, outputImage;
     int cnt = 0;
     while(true)
     {
@@ -170,7 +170,7 @@ int main(int argc, char **argv)
         }
 
         // Process background segmentation and removal
-        res = vbge->run(inputImage, foregroundMask);
+        res = vbge->run(inputImage, outputImage);
         if(0 > res) {
             logging_error("VBGE::VideoBackgroundEraser::run() failed.");
             return EXIT_FAILURE;
@@ -185,20 +185,13 @@ int main(int argc, char **argv)
             oss << cmdArguments.outputPath << "/" << std::setw(8) << std::setfill('0') << cnt++ << ".png";
             std::string path = oss.str();
             logging_info("Writing : " << path);
-            cv::imwrite(path, foregroundMask);
+            cv::imwrite(path, outputImage);
         }
-
-
-
-        // Draw
-        cv::Mat noBackgroundImage = inputImage.clone();
-        noBackgroundImage.setTo(cv::Scalar(0, 255, 0), 0 == foregroundMask);
 
         // Display
         if(false == cmdArguments.hideDisplay) {
             cv::imshow("inputImage", inputImage);
-            cv::imshow("foregroundMask", foregroundMask);
-            cv::imshow("noBackgroundImage", noBackgroundImage);
+            cv::imshow("outputImage", outputImage);
             int key = cv::waitKey(0) & 0xff;
             if(27 == key || 'q' == key) {
                 break;

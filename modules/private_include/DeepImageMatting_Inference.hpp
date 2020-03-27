@@ -49,7 +49,7 @@ public:
     bool get_isInitialized();
 
 
-    int run(const cv::Mat& i_image_rgba, cv::Mat& o_enhanced_image_rgba);
+    int run(const cv::Mat& i_image_rgba, cv::Mat& o_alpha_prediction);
 
 private:
     // Misc

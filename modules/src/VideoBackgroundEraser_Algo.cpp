@@ -93,17 +93,24 @@ int VideoBackgroundEraser_Algo::run(const cv::Mat& i_image, cv::Mat& o_image_wit
     compute_trimap(image_rgb_uint8, foregroundMask, trimap);
     // Convert image rgb with trimap to make a rgba image
     cv::Mat imageFloat_rgba;
-    {
-        std::vector<cv::Mat> image_rgba_planar;
-        cv::split(imageFloat, image_rgba_planar);
-        image_rgba_planar.push_back(trimap);
-        cv::merge(image_rgba_planar, imageFloat_rgba);
-    }
+    std::vector<cv::Mat> image_rgba_planar;
+    cv::split(imageFloat, image_rgba_planar);
+    image_rgba_planar.push_back(cv::Mat());
+    trimap.convertTo(image_rgba_planar.back(), CV_32F, 1./255.);
+    cv::merge(image_rgba_planar, imageFloat_rgba);
 
 
     // Run Deep Image Matting
-    m_deepimagematting_inference.run(imageFloat_rgba, o_image_withoutBackground);
+    cv::Mat alpha_prediction;
+    m_deepimagematting_inference.run(imageFloat_rgba, alpha_prediction);
 
+    // Post process alpha_prediction
+    alpha_prediction.setTo(0, 0 == trimap);
+    alpha_prediction.setTo(255, 255 == trimap);
+
+    // Replace alpha in image_rgba_planar with alpha_prediction
+    alpha_prediction.convertTo(image_rgba_planar[3], CV_8U, 255.);
+    cv::merge(image_rgba_planar, o_image_withoutBackground);
 
     return 0;
 }
@@ -227,9 +234,6 @@ void VideoBackgroundEraser_Algo::compute_trimap(const cv::Mat& i_image, const cv
     // Compute background mean and standard deviation in a large area around the current foreground
     cv::Vec3d backgroundMean, backgroundStD;
     cv::meanStdDev(i_image, backgroundMean, backgroundStD, foregroundContour);
-
-    std::cout << backgroundMean << std::endl;
-    std::cout << backgroundStD << std::endl;
 
     // Also compute local mean and StD over a small area
     cv::Mat localMean, localStD;
