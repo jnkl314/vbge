@@ -109,8 +109,23 @@ int VideoBackgroundEraser_Algo::run(const cv::Mat& i_image, cv::Mat& o_image_wit
     alpha_prediction.setTo(255, 255 == trimap);
 
     // Replace alpha in image_rgba_planar with alpha_prediction
-    alpha_prediction.convertTo(image_rgba_planar[3], CV_8U, 255.);
-    cv::merge(image_rgba_planar, o_image_withoutBackground);
+//    alpha_prediction.convertTo(image_rgba_planar[3], CV_8U, 255.);
+    image_rgba_planar[3] = alpha_prediction;
+    cv::Mat image_withoutBackground;
+    cv::merge(image_rgba_planar, image_withoutBackground);
+
+    // Facultative conversion to the same depth as input
+    if(CV_32F != i_image.depth()) {
+        switch(i_image.depth()) {
+        case CV_8U: image_withoutBackground.convertTo(o_image_withoutBackground, CV_8U, 255.); break;
+        case CV_16U: image_withoutBackground.convertTo(o_image_withoutBackground, CV_16U, 65535.); break;
+        default:
+            logging_error("Unsuported input image depth (" << cv::typeToString(i_image.depth()) << "). Supported depths are CV_32F, CV_16U and CV_8U");
+            return -1;
+        }
+    } else {
+        o_image_withoutBackground = image_withoutBackground;
+    }
 
     return 0;
 }

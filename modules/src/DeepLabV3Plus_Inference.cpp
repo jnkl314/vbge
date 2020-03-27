@@ -64,8 +64,17 @@ int DeepLabV3Plus_Inference::run(const cv::Mat& i_image, cv::Mat& o_backgroundMa
         return -1;
     }
 
+    // Check on image size and change strategy if necessary
+    DeepLabV3Plus_Inference_Settings::Strategy effectiveStrategy = m_settings.strategy;
+    if(DeepLabV3Plus_Inference_Settings::SlidingWindow == effectiveStrategy &&
+            (i_image.rows < m_settings.inferenceSize.height || i_image.cols < m_settings.inferenceSize.width)) {
+        logging_warning("Image size (" << i_image.size() << ") is smaller in one or both dimension than the inference size (" << m_settings.inferenceSize << "). "
+                        << "Stragety forced to 'Resize'");
+        effectiveStrategy = DeepLabV3Plus_Inference_Settings::Resize;
+    }
+
     cv::Mat noBackground;
-    switch(m_settings.strategy) {
+    switch(effectiveStrategy) {
     case DeepLabV3Plus_Inference_Settings::Resize: run_resize(i_image, noBackground); break;
     case DeepLabV3Plus_Inference_Settings::SlidingWindow: run_window(i_image, noBackground); break;
     default:; // Can't get here because of the assert above

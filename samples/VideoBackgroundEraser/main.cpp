@@ -166,6 +166,7 @@ int main(int argc, char **argv)
             logging_error("Failed to grab new image");
             break;
         } else {
+//            cv::resize(inputImage, inputImage, cv::Size(), 0.2, 0.2);
             logging_info("Image of type " << cv::typeToString(inputImage.type()) << " and size " << inputImage.size());
         }
 

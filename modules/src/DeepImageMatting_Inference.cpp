@@ -67,18 +67,18 @@ int DeepImageMatting_Inference::run(const cv::Mat& i_image_rgba, cv::Mat& o_alph
     std::vector<torch::jit::IValue> inputs;
     inputs.push_back(inputTensor_NCHW);
     // /!\ Dynamic alloc
-    torch::Tensor neuralNet_outputTensor_NCHW = m_model.forward(inputs).toTensor();
+    torch::Tensor neuralNet_outputTensor_CHW = m_model.forward(inputs).toTensor();
 
     // Prepare output
     o_alpha_prediction.create(i_image_rgba.size(), CV_32F);
-    // Permute format NCHW (PyTorch) to NHWC (OpenCV) (no deep copy)
-    torch::Tensor neuralNet_outputTensor_NHWC = neuralNet_outputTensor_NCHW.permute({0, 2, 3, 1});
+    // Permute format CHW (PyTorch) to HWC (OpenCV) (no deep copy)
+    torch::Tensor neuralNet_outputTensor_HWC = neuralNet_outputTensor_CHW.permute({1, 2, 0});
     // Encapsulate o_enhanced_image_rgba in a tensor (no deep copy) with OpenCV format NHWC
-    std::vector<int64_t> dstSize = {1, o_alpha_prediction.rows, o_alpha_prediction.cols, o_alpha_prediction.channels()};
-    std::vector<int64_t> dstStride = {1, static_cast<int64_t>(o_alpha_prediction.step1()), o_alpha_prediction.channels(), 1};
-    torch::Tensor dstTensor_NHWC = torch::from_blob(o_alpha_prediction.data, dstSize, dstStride, torch::kCPU);
-    // Copy neuralNet_outputTensor_NHWC to outputTensor_NHWC
-    dstTensor_NHWC.copy_(neuralNet_outputTensor_NHWC, true);
+    std::vector<int64_t> dstSize = {o_alpha_prediction.rows, o_alpha_prediction.cols, o_alpha_prediction.channels()};
+    std::vector<int64_t> dstStride = {static_cast<int64_t>(o_alpha_prediction.step1()), o_alpha_prediction.channels(), 1};
+    torch::Tensor dstTensor_HWC = torch::from_blob(o_alpha_prediction.data, dstSize, dstStride, torch::kCPU);
+    // Copy neuralNet_outputTensor_HWC to outputTensor_HWC
+    dstTensor_HWC.copy_(neuralNet_outputTensor_HWC, true);
 
     return 0;
 }
