@@ -230,7 +230,7 @@ void VideoBackgroundEraser_Algo::compute_trimap(const cv::Mat& i_image, const cv
     cv::Mat foregroundContour;
     cv::dilate(i_foreground, foregroundContour, kernel, cv::Point(-1, -1), 10*iterations);
     foregroundContour = foregroundContour & 0 == i_foreground;
-    cv::imshow("foregroundContour", foregroundContour);
+
     // Compute background mean and standard deviation in a large area around the current foreground
     cv::Vec3d backgroundMean, backgroundStD;
     cv::meanStdDev(i_image, backgroundMean, backgroundStD, foregroundContour);
