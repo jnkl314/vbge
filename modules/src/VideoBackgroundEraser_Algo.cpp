@@ -78,10 +78,24 @@ int VideoBackgroundEraser_Algo::run(const cv::Mat& i_image, cv::Mat& o_foregroun
     m_deeplabv3plus_inference.run(imageFloat, backgroundMask);
 
 
+    // Run temporal processing to try and keep consistency between successive frames
+    cv::Mat image_rgb_uint8;
+    imageFloat.convertTo(image_rgb_uint8, CV_8U, 255.);
+    if(0 > temporalManagement(image_rgb_uint8, backgroundMask, o_foregroundMask)) {
+        logging_error("temporalManagement() failed.");
+        return -1;
+    }
+
+
+    return 0;
+}
+
+
+int VideoBackgroundEraser_Algo::temporalManagement(const cv::Mat& i_image_rgb_uint8, const cv::Mat& i_backgroundMask, cv::Mat& o_foregroundMask)
+{
     cv::Mat image_uint8;
-    imageFloat.convertTo(image_uint8, CV_8U, 255.);
-    cv::cvtColor(image_uint8, image_uint8, cv::COLOR_BGR2GRAY);
-    cv::Mat foregroundDetection = 0 == backgroundMask;
+    cv::cvtColor(i_image_rgb_uint8, image_uint8, cv::COLOR_BGR2GRAY);
+    cv::Mat foregroundDetection = 0 == i_backgroundMask;
 
 
     cv::erode(foregroundDetection, foregroundDetection, cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(7, 7)), cv::Point(-1, -1), 3);
@@ -167,8 +181,74 @@ int VideoBackgroundEraser_Algo::run(const cv::Mat& i_image, cv::Mat& o_foregroun
 
     image_uint8.copyTo(m_image_prev);
 
-
     return 0;
+}
+
+void VideoBackgroundEraser_Algo::compute_trimap(const cv::Mat& i_image, const cv::Mat& i_foreground, cv::Mat &o_trimap)
+{
+    // Generate standard trimap with morpho maths
+    constexpr int kSize = 3;
+    constexpr int iterations = 5;
+    auto kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(kSize, kSize));
+    cv::Mat dilated;
+    cv::dilate(i_foreground, dilated, kernel, cv::Point(-1, -1), iterations);
+    cv::Mat eroded;
+    cv::erode(i_foreground, eroded, kernel, cv::Point(-1, -1), iterations);
+
+    o_trimap.create(i_foreground.size(), CV_8U);
+    o_trimap.setTo(128);
+    o_trimap.setTo(255, eroded >= 255);
+    o_trimap.setTo(0, dilated <= 0);
+
+    // Improve trimap with image content
+    // Compute mask for an area around the foreground
+    cv::Mat foregroundContour;
+    cv::dilate(i_foreground, foregroundContour, kernel, cv::Point(-1, -1), 10*iterations);
+    foregroundContour = foregroundContour & 0 == i_foreground;
+    cv::imshow("foregroundContour", foregroundContour);
+    // Compute background mean and standard deviation in a large area around the current foreground
+    cv::Vec3d backgroundMean, backgroundStD;
+    cv::meanStdDev(i_image, backgroundMean, backgroundStD, foregroundContour);
+
+    std::cout << backgroundMean << std::endl;
+    std::cout << backgroundStD << std::endl;
+
+    // Also compute local mean and StD over a small area
+    cv::Mat localMean, localStD;
+    {
+        const cv::Size localAreaSize = {11, 11};
+
+        cv::Mat image32f;
+        i_image.convertTo(image32f, CV_32F);
+
+        cv::blur(image32f, localMean, localAreaSize);
+        cv::Mat squareLocalMean;
+        cv::blur(image32f.mul(image32f), squareLocalMean, localAreaSize);
+        cv::sqrt(squareLocalMean - localMean.mul(localMean), localStD);
+    }
+
+    // Inefficient double loop, but that will do the job for now
+    // Compare local and global mean/std in "confirmed" area of the trimap
+    for(int y = 0 ; y < i_image.rows ; ++y) {
+        for(int x = 0 ; x < i_image.cols ; ++x) {
+            if(255 == o_trimap.at<uint8_t>(y, x)) {
+                // Check if the local mean is enclosed in the the global mean +/- StD
+                // Also check that the local StD is fairly low
+                cv::Vec3f& lmu = localMean.at<cv::Vec3f>(y, x);
+                cv::Vec3f& lstd = localStD.at<cv::Vec3f>(y, x);
+                bool isUncertain = true;
+                for(int c = 0 ; c < 3 ; ++c) {
+                    if(5 < lstd(c) || std::abs(lmu(c) - backgroundMean(c)) > 0.5*backgroundStD(c)) {
+                        isUncertain = false;
+                    }
+                }
+                if(isUncertain) {
+                    o_trimap.at<uint8_t>(y, x) = 128;
+                }
+
+            }
+        }
+    }
 }
 
 } /* namespace VBGE */
