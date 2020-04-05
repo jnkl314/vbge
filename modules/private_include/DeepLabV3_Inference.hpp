@@ -2,13 +2,13 @@
 /* File Description                                                           */
 /*============================================================================*/
 /**
- * @file        DeepLabV3Plus_Inference.hpp
+ * @file        DeepLabV3_Inference.hpp
 
  */
 /*============================================================================*/
 
-#ifndef DEEPLABV3PLUS_INFERENCE_HPP_
-#define DEEPLABV3PLUS_INFERENCE_HPP_
+#ifndef DEEPLABV3_INFERENCE_HPP_
+#define DEEPLABV3_INFERENCE_HPP_
 
 /*============================================================================*/
 /* Includes                                                                   */
@@ -16,7 +16,7 @@
 #include <opencv2/opencv.hpp>
 #include <torch/script.h>
 
-#include "DeepLabV3Plus_Inference_Settings.hpp"
+#include "DeepLabV3_Inference_Settings.hpp"
 
 /*============================================================================*/
 /* define                                                                     */
@@ -28,7 +28,7 @@
 namespace VBGE {
 
 
-class DeepLabV3Plus_Inference {
+class DeepLabV3_Inference {
 public:
 
     /*============================================================================*/
@@ -42,14 +42,14 @@ public:
      *
      */
     /*============================================================================*/
-    DeepLabV3Plus_Inference(const DeepLabV3Plus_Inference_Settings& i_settings);
+    DeepLabV3_Inference(const DeepLabV3_Inference_Settings& i_settings);
 
-    ~DeepLabV3Plus_Inference();
+    ~DeepLabV3_Inference();
 
     bool get_isInitialized();
 
 
-    int run(const cv::Mat& i_image, cv::Mat& o_backgroundMask);
+    int run(const cv::Mat& i_image, cv::Mat& o_segmentation);
 
 private:
     // Misc
@@ -59,11 +59,9 @@ private:
     torch::jit::script::Module m_model;
 
     // Settings
-    const DeepLabV3Plus_Inference_Settings m_settings;
+    const DeepLabV3_Inference_Settings m_settings;
 
-    void segmentBackground(const cv::Mat& i_image, cv::Mat& o_noBackgroundMask);
-
-    void run_resize(const cv::Mat& i_image, cv::Mat& o_noBackgroundMask);
+    void run_segmentation(const cv::Mat& i_image, cv::Mat& o_segmentation);
 
     // Utility struct
     typedef struct {
@@ -81,4 +79,4 @@ private:
 };
 
 } /* namespace VBGE */
-#endif /* DEEPLABV3PLUS_INFERENCE_HPP_ */
+#endif /* DEEPLABV3_INFERENCE_HPP_ */

@@ -16,7 +16,7 @@
 #include <opencv2/opencv.hpp>
 #include <torch/script.h>
 
-#include "DeepLabV3Plus_Inference.hpp"
+#include "DeepLabV3_Inference.hpp"
 #include "DeepImageMatting_Inference.hpp"
 #include "VideoBackgroundEraser_Settings.hpp"
 
@@ -61,7 +61,7 @@ private:
     VideoBackgroundEraser_Settings m_settings;
 
     // Members
-    DeepLabV3Plus_Inference m_deeplabv3plus_inference;
+    DeepLabV3_Inference m_deeplabv3_inference;
     cv::Mat m_image_prev;
     cv::Ptr<cv::DISOpticalFlow> m_optFLow;
     std::list<cv::Mat> m_detections_history;

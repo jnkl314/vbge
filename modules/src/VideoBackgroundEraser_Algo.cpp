@@ -29,12 +29,12 @@ namespace VBGE {
 
 VideoBackgroundEraser_Algo::VideoBackgroundEraser_Algo(const VideoBackgroundEraser_Settings &i_settings)
     : m_settings(i_settings),
-      m_deeplabv3plus_inference(m_settings.deeplabv3plus_inference),
+      m_deeplabv3_inference(m_settings.deeplabv3_inference),
       m_deepimagematting_inference(m_settings.deepimagematting_inference)
 {
 
-    if(false == m_deeplabv3plus_inference.get_isInitialized()) {
-        logging_error("m_deeplabv3plus_inference was not correctly initialized.");
+    if(false == m_deeplabv3_inference.get_isInitialized()) {
+        logging_error("m_deeplabv3_inference was not correctly initialized.");
         return;
     }
 
@@ -74,18 +74,90 @@ int VideoBackgroundEraser_Algo::run(const cv::Mat& i_image, cv::Mat& o_image_wit
 
     CV_Assert(CV_32FC3 == imageFloat.type());
 
-    // Run segmentation with DeepLabV3Plus to create a mask of the background
+    /*
+    // Apply local contrast enhancement
+    cv::Mat src;
+    imageFloat.convertTo(src, CV_8U, 255.);
+    cv::Mat image_lce; // lce for local contrast enhancement
+    {
+        // Switch to HSV
+        cv::Mat hsv;
+        cv::cvtColor(src, hsv, cv::COLOR_BGR2HSV);
+
+        // Split channels
+        std::vector<cv::Mat> hsv_split;
+        cv::split(hsv, hsv_split);
+
+        // Work on V
+        cv::Mat lum = hsv_split[2];
+        {
+            // Apply local histogram equalization
+            cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(40, cv::Size(16, 16));
+            cv::Mat enhancedLum;
+            clahe->apply(lum, enhancedLum);
+
+            hsv_split[2] = enhancedLum;
+        }
+
+        // Merge back channels
+        cv::merge(hsv_split, hsv);
+
+        // Switch back to BGR
+        cv::cvtColor(hsv, image_lce, cv::COLOR_HSV2BGR);
+    }
+    cv::Mat imageFloat_lce;
+    image_lce.convertTo(imageFloat_lce, CV_32F, 1./255.);
+    //*/
+
+    // Run segmentation with DeepLabV3 to create a mask of the background
+    cv::Mat segmentation;
+    m_deeplabv3_inference.run(imageFloat, segmentation);
+
+    // Debug display
+//    {
+//        cv::Mat segmentation_uint8;
+//        segmentation.convertTo(segmentation_uint8, CV_8U, 50);
+//        cv::Mat segmentationColor;
+//        cv::applyColorMap(segmentation_uint8, segmentationColor, cv::COLORMAP_HSV);
+//        cv::imshow("segmentationColor", segmentationColor);
+//    }
+//    {
+//        cv::Mat segmentation_uint8;
+//        segmentation.convertTo(segmentation_uint8, CV_8U);
+//        cv::cvtColor(segmentation_uint8, segmentation_uint8, cv::COLOR_GRAY2BGR);
+//        cv::imshow("segmentation_uint8", segmentation_uint8);
+//    }
+
     cv::Mat backgroundMask;
-    m_deeplabv3plus_inference.run(imageFloat, backgroundMask);
+    if(m_settings.deeplabv3_inference.background_classId_vector.empty()) {
+        logging_error("m_settings.deeplabv3_inference.background_classId_vector is empty.");
+        return -1;
+    }
+    for(auto& background_id : m_settings.deeplabv3_inference.background_classId_vector) {
+        if(backgroundMask.empty()) {
+            backgroundMask = (segmentation == background_id);
+        } else {
+            backgroundMask = backgroundMask | (segmentation == background_id);
+        }
+    }
 
+//    imageFloat.copyTo(o_image_withoutBackground);
+//    o_image_withoutBackground.setTo(0, backgroundMask);
+//    return 0;
 
-    // Run temporal processing to try and keep consistency between successive frames
+    // Prepare intermediary data
     cv::Mat foregroundMask;
     cv::Mat image_rgb_uint8;
     imageFloat.convertTo(image_rgb_uint8, CV_8U, 255.);
-    if(0 > temporalManagement(image_rgb_uint8, backgroundMask, foregroundMask)) {
-        logging_error("temporalManagement() failed.");
-        return -1;
+
+    // Run temporal processing to try and keep consistency between successive frames
+    if(m_settings.enable_temporalManagement) {
+        if(0 > temporalManagement(image_rgb_uint8, backgroundMask, foregroundMask)) {
+            logging_error("temporalManagement() failed.");
+            return -1;
+        }
+    } else {
+        foregroundMask = 0 == backgroundMask;
     }
 
     // Generate trimap
@@ -137,13 +209,9 @@ int VideoBackgroundEraser_Algo::temporalManagement(const cv::Mat& i_image_rgb_ui
     cv::cvtColor(i_image_rgb_uint8, image_uint8, cv::COLOR_BGR2GRAY);
     cv::Mat foregroundDetection = 0 == i_backgroundMask;
 
-
-    cv::erode(foregroundDetection, foregroundDetection, cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(7, 7)), cv::Point(-1, -1), 3);
-    cv::dilate(foregroundDetection, foregroundDetection, cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(7, 7)), cv::Point(-1, -1), 3);
-
-    constexpr int nbPQ = 1;
-    constexpr int P[nbPQ] = {1};//, 1};
-    constexpr int Q[nbPQ] = {3};//, 4};
+    constexpr int nbPQ = 2;
+    constexpr int P[nbPQ] = {1, 2};
+    constexpr int Q[nbPQ] = {2, 8};
     uint sumQ = 0;
     for(int i = 0 ; i < nbPQ ; ++i) {
         sumQ += Q[i];
@@ -208,15 +276,16 @@ int VideoBackgroundEraser_Algo::temporalManagement(const cv::Mat& i_image_rgb_ui
         // Increase values of statusMap which were once confirmed but have not been seen recently
         cv::add(m_statusMap, 1, m_statusMap, (0 == confirmedDetection) & (0 != m_statusMap));
         // Remove the old confirmed values which have not been seen for too long
-        m_statusMap.setTo(0, m_statusMap > 15);
+        m_statusMap.setTo(0, m_statusMap > 20);
 
         // Effective foreground is when statusMap is valid and we also add the current foreground detection
-        o_foregroundMask = (0 != m_statusMap) | foregroundDetection;
+        o_foregroundMask = (0 != m_statusMap);
 
     } else {
         m_statusMap = cv::Mat::zeros(image_uint8.size(), CV_8U);
 
-        o_foregroundMask = foregroundDetection;
+        o_foregroundMask.create(foregroundDetection.size(), CV_8U);
+        o_foregroundMask.setTo(0);
     }
 
     image_uint8.copyTo(m_image_prev);
@@ -228,23 +297,26 @@ void VideoBackgroundEraser_Algo::compute_trimap(const cv::Mat& i_image, const cv
 {
     // Generate standard trimap with morpho maths
     constexpr int kSize = 3;
-    constexpr int iterations = 5;
+    constexpr int dilate_iterations = 2;
+    constexpr int erode_iterations = 7;
     auto kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(kSize, kSize));
     cv::Mat dilated;
-    cv::dilate(i_foreground, dilated, kernel, cv::Point(-1, -1), iterations);
+    cv::dilate(i_foreground, dilated, kernel, cv::Point(-1, -1), dilate_iterations);
     cv::Mat eroded;
-    cv::erode(i_foreground, eroded, kernel, cv::Point(-1, -1), iterations);
+    cv::erode(i_foreground, eroded, kernel, cv::Point(-1, -1), erode_iterations);
 
     o_trimap.create(i_foreground.size(), CV_8U);
     o_trimap.setTo(128);
     o_trimap.setTo(255, eroded >= 255);
     o_trimap.setTo(0, dilated <= 0);
 
+    return ;
+    // Only works for homogeneous background, like sky etc.
     // Improve trimap with image content
     // Compute mask for an area around the foreground
     cv::Mat foregroundContour;
-    cv::dilate(i_foreground, foregroundContour, kernel, cv::Point(-1, -1), 10*iterations);
-    foregroundContour = foregroundContour & 0 == i_foreground;
+    cv::dilate(i_foreground, foregroundContour, kernel, cv::Point(-1, -1), 10*dilate_iterations);
+    foregroundContour = foregroundContour & (0 == i_foreground);
 
     // Compute background mean and standard deviation in a large area around the current foreground
     cv::Vec3d backgroundMean, backgroundStD;

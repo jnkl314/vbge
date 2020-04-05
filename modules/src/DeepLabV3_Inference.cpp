@@ -2,7 +2,7 @@
 /* File Description                                                           */
 /*============================================================================*/
 /**
- * @file        DeepLabV3Plus_Inference.cpp
+ * @file        DeepLabV3_Inference.cpp
 
  */
 /*============================================================================*/
@@ -16,7 +16,7 @@
 
 #include "Utils_Logging.hpp"
 
-#include "DeepLabV3Plus_Inference.hpp"
+#include "DeepLabV3_Inference.hpp"
 
 /*============================================================================*/
 /* Defines                                                                  */
@@ -27,32 +27,32 @@
 /*============================================================================*/
 namespace VBGE {
 
-DeepLabV3Plus_Inference::DeepLabV3Plus_Inference(const DeepLabV3Plus_Inference_Settings& i_settings)
+DeepLabV3_Inference::DeepLabV3_Inference(const DeepLabV3_Inference_Settings& i_settings)
     : m_settings(i_settings)
 {
     m_model = torch::jit::load(m_settings.model_path, m_settings.inferenceDeviceType);
 
     // Check settings
-    if(m_settings.Resize != m_settings.strategy && m_settings.SlidingWindow != m_settings.strategy) {
+    if(m_settings.FullSize != m_settings.strategy && m_settings.SlidingWindow != m_settings.strategy) {
         logging_error("m_settings.strategy has an unknown value (=" << m_settings.strategy << "). "
-                      << "It should be 'Resize'(=" << m_settings.Resize << ").  or 'SlidingWindow'(=" << m_settings.SlidingWindow << "). ");
+                      << "It should be 'FullSize'(=" << m_settings.FullSize << ").  or 'SlidingWindow'(=" << m_settings.SlidingWindow << "). ");
         return;
     }
 
     m_isInitialized = true;
 }
 
-DeepLabV3Plus_Inference::~DeepLabV3Plus_Inference()
+DeepLabV3_Inference::~DeepLabV3_Inference()
 {
 
 }
 
-bool DeepLabV3Plus_Inference::get_isInitialized() {
+bool DeepLabV3_Inference::get_isInitialized() {
     return m_isInitialized;
 }
 
 
-int DeepLabV3Plus_Inference::run(const cv::Mat& i_image, cv::Mat& o_backgroundMask)
+int DeepLabV3_Inference::run(const cv::Mat& i_image, cv::Mat& o_segmentation)
 {
     if(false == get_isInitialized()) {
         logging_error("This instance was not correctly initialized.");
@@ -64,31 +64,30 @@ int DeepLabV3Plus_Inference::run(const cv::Mat& i_image, cv::Mat& o_backgroundMa
         return -1;
     }
 
-    // Check on image size and change strategy if necessary
-    DeepLabV3Plus_Inference_Settings::Strategy effectiveStrategy = m_settings.strategy;
-    if(DeepLabV3Plus_Inference_Settings::SlidingWindow == effectiveStrategy &&
-            (i_image.rows < m_settings.inferenceSize.height || i_image.cols < m_settings.inferenceSize.width)) {
-        logging_warning("Image size (" << i_image.size() << ") is smaller in one or both dimension than the inference size (" << m_settings.inferenceSize << "). "
-                        << "Stragety forced to 'Resize'");
-        effectiveStrategy = DeepLabV3Plus_Inference_Settings::Resize;
-    }
+//    // Check on image size and change strategy if necessary
+//    DeepLabV3_Inference_Settings::Strategy effectiveStrategy = m_settings.strategy;
+//    if(DeepLabV3_Inference_Settings::SlidingWindow == effectiveStrategy &&
+//            (i_image.rows < m_settings.slidingWindow_size.height || i_image.cols < m_settings.slidingWindow_size.width)) {
+//        logging_warning("Image size (" << i_image.size() << ") is smaller in one or both dimension than the inference size (" << m_settings.inferenceSize << "). "
+//                        << "Stragety forced to 'Resize'");
+//        effectiveStrategy = DeepLabV3_Inference_Settings::Resize;
+//    }
 
-    cv::Mat noBackground;
-    switch(effectiveStrategy) {
-    case DeepLabV3Plus_Inference_Settings::Resize: run_resize(i_image, noBackground); break;
-    case DeepLabV3Plus_Inference_Settings::SlidingWindow: run_window(i_image, noBackground); break;
+    switch(m_settings.strategy) {
+    case DeepLabV3_Inference_Settings::FullSize: run_segmentation(i_image, o_segmentation); break;
+    case DeepLabV3_Inference_Settings::SlidingWindow: run_window(i_image, o_segmentation); break;
     default:; // Can't get here because of the assert above
     }
-
-    o_backgroundMask = 0 == noBackground;
 
     return 0;
 }
 
-void DeepLabV3Plus_Inference::segmentBackground(const cv::Mat& i_image, cv::Mat& o_noBackgroundMask)
+void DeepLabV3_Inference::run_segmentation(const cv::Mat& i_image, cv::Mat& o_segmentation)
 {
-    // Checks
-    CV_Assert(m_settings.inferenceSize == i_image.size());
+    // Normalize input image
+    cv::Scalar meanValues(m_settings.model_mean);
+    cv::Scalar stdValues(m_settings.model_std);
+    cv::Mat imageNormalized = (i_image - meanValues)/stdValues;
 
     // We don't want to save the gradients during net.forward()
     torch::NoGradGuard no_grad_guard;
@@ -115,30 +114,18 @@ void DeepLabV3Plus_Inference::segmentBackground(const cv::Mat& i_image, cv::Mat&
     // Prepare output
     int height = output_predictions.sizes()[0];
     int width = output_predictions.sizes()[1];
-    cv::Mat segmentation(height, width, CV_32S); // /!\ Dynamic alloc
-    std::vector<int64_t> dstSize = {segmentation.rows, segmentation.cols};
-    std::vector<int64_t> dstStride = {static_cast<int64_t>(segmentation.step1()), 1};
-    torch::Tensor segmentationTensor = torch::from_blob(segmentation.data, dstSize, dstStride, torch::kCPU);
+    o_segmentation.create(height, width, CV_32S); // /!\ Dynamic alloc
+    std::vector<int64_t> dstSize = {o_segmentation.rows, o_segmentation.cols};
+    std::vector<int64_t> dstStride = {static_cast<int64_t>(o_segmentation.step1()), 1};
+    torch::TensorOptions options;
+    options = options.dtype(torch::kInt32);
+    options = options.device(torch::kCPU);
+    torch::Tensor segmentationTensor = torch::from_blob(o_segmentation.data, dstSize, dstStride, options);
     // Copy neuralNet_outputTensor_NHWC to outputTensor_NHWC
     segmentationTensor.copy_(output_predictions, true);
-
-    // Build mask, valid for every pixel segmented as background
-    o_noBackgroundMask = m_settings.background_classId != segmentation;
 }
 
-void DeepLabV3Plus_Inference::run_resize(const cv::Mat& i_image, cv::Mat& o_noBackgroundMask)
-{
-    if(i_image.size() != m_settings.inferenceSize) {
-        cv::Mat image_resized, noBackgroundMask_resized;;
-        cv::resize(i_image, image_resized, m_settings.inferenceSize, 0, 0, cv::INTER_CUBIC);
-        segmentBackground(image_resized, noBackgroundMask_resized);
-        cv::resize(noBackgroundMask_resized, o_noBackgroundMask, i_image.size(), 0, 0, cv::INTER_NEAREST);
-    } else {
-        segmentBackground(i_image, o_noBackgroundMask);
-    }
-}
-
-void DeepLabV3Plus_Inference::create_windowList(const cv::Mat                &i_image,
+void DeepLabV3_Inference::create_windowList(const cv::Mat                &i_image,
                        const cv::Size                i_windowSize,
                        const cv::Size                i_overlapSize,
                              std::list<WindowImage> &o_windowList)
@@ -195,33 +182,33 @@ void DeepLabV3Plus_Inference::create_windowList(const cv::Mat                &i_
 
 }
 
-void DeepLabV3Plus_Inference::run_window(const cv::Mat& i_image, cv::Mat& o_noBackgroundMask)
+void DeepLabV3_Inference::run_window(const cv::Mat& i_image, cv::Mat& o_segmentation)
 {
     // Create list of windows
     std::list<WindowImage> windowList;
-    create_windowList(i_image, m_settings.inferenceSize, m_settings.slidingWindow_overlap, windowList);
+    create_windowList(i_image, m_settings.slidingWindow_size, m_settings.slidingWindow_overlap, windowList);
 
     // Create list of background masks and launch segmentation
     std::list<WindowImage> noBackgroundMask_windowList;
     for(auto& window : windowList) {
         cv::Mat noBackgroundMask_window;
-        segmentBackground(window.im, noBackgroundMask_window);
+        run_segmentation(window.im, noBackgroundMask_window);
         noBackgroundMask_windowList.push_back({noBackgroundMask_window, window.origin_in_source});
     }
 
     // Merge backgroundMask_windowList in o_backgroundMask
-    o_noBackgroundMask.create(i_image.size(), CV_8U);
-    o_noBackgroundMask.setTo(0);
+    o_segmentation.create(i_image.size(), CV_32S);
+    o_segmentation.setTo(0);
 
     for(auto& backgroundMask_window : noBackgroundMask_windowList) {
         cv::Rect roi(backgroundMask_window.origin_in_source, backgroundMask_window.im.size());
-        o_noBackgroundMask(roi) = cv::max(o_noBackgroundMask(roi), backgroundMask_window.im);
+        o_segmentation(roi) = cv::max(o_segmentation(roi), backgroundMask_window.im);
     }
 
     // Also run resize
     cv::Mat noBackgroundMask_resized;
-    run_resize(i_image, noBackgroundMask_resized);
-    o_noBackgroundMask = cv::max(o_noBackgroundMask, noBackgroundMask_resized);
+    run_segmentation(i_image, noBackgroundMask_resized);
+    o_segmentation = cv::max(o_segmentation, noBackgroundMask_resized);
 }
 
 } /* namespace VBGE */

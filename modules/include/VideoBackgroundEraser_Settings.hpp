@@ -15,7 +15,7 @@
 /*============================================================================*/
 #include <opencv2/opencv.hpp>
 
-#include "DeepLabV3Plus_Inference_Settings.hpp"
+#include "DeepLabV3_Inference_Settings.hpp"
 #include "DeepImageMatting_Inference_Settings.hpp"
 
 /*============================================================================*/
@@ -25,8 +25,9 @@ namespace VBGE {
 
 class VideoBackgroundEraser_Settings {
 public:
-    DeepLabV3Plus_Inference_Settings deeplabv3plus_inference;
+    DeepLabV3_Inference_Settings deeplabv3_inference;
     DeepImageMatting_Inference_Settings deepimagematting_inference;
+    bool enable_temporalManagement = false;
 };
 
 } /* namespace VBGE */
