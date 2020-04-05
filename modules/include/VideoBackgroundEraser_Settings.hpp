@@ -28,6 +28,7 @@ public:
     DeepLabV3_Inference_Settings deeplabv3_inference;
     DeepImageMatting_Inference_Settings deepimagematting_inference;
     bool enable_temporalManagement = false;
+    float imageMatting_scale = 1.f;
 };
 
 } /* namespace VBGE */

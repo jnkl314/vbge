@@ -72,7 +72,7 @@ private:
 
     // Methods
     int temporalManagement(const cv::Mat& i_image_rgb_uint8, const cv::Mat& i_backgroundMask, cv::Mat& o_foregroundMask);
-    void compute_trimap(const cv::Mat& i_image, const cv::Mat& i_foreground, cv::Mat &o_trimap);
+    void compute_trimap(const cv::Mat& i_foreground, cv::Mat &o_trimap);
 
 };
 

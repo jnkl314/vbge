@@ -74,41 +74,6 @@ int VideoBackgroundEraser_Algo::run(const cv::Mat& i_image, cv::Mat& o_image_wit
 
     CV_Assert(CV_32FC3 == imageFloat.type());
 
-    /*
-    // Apply local contrast enhancement
-    cv::Mat src;
-    imageFloat.convertTo(src, CV_8U, 255.);
-    cv::Mat image_lce; // lce for local contrast enhancement
-    {
-        // Switch to HSV
-        cv::Mat hsv;
-        cv::cvtColor(src, hsv, cv::COLOR_BGR2HSV);
-
-        // Split channels
-        std::vector<cv::Mat> hsv_split;
-        cv::split(hsv, hsv_split);
-
-        // Work on V
-        cv::Mat lum = hsv_split[2];
-        {
-            // Apply local histogram equalization
-            cv::Ptr<cv::CLAHE> clahe = cv::createCLAHE(40, cv::Size(16, 16));
-            cv::Mat enhancedLum;
-            clahe->apply(lum, enhancedLum);
-
-            hsv_split[2] = enhancedLum;
-        }
-
-        // Merge back channels
-        cv::merge(hsv_split, hsv);
-
-        // Switch back to BGR
-        cv::cvtColor(hsv, image_lce, cv::COLOR_HSV2BGR);
-    }
-    cv::Mat imageFloat_lce;
-    image_lce.convertTo(imageFloat_lce, CV_32F, 1./255.);
-    //*/
-
     // Run segmentation with DeepLabV3 to create a mask of the background
     cv::Mat segmentation;
     m_deeplabv3_inference.run(imageFloat, segmentation);
@@ -162,7 +127,17 @@ int VideoBackgroundEraser_Algo::run(const cv::Mat& i_image, cv::Mat& o_image_wit
 
     // Generate trimap
     cv::Mat trimap;
-    compute_trimap(image_rgb_uint8, foregroundMask, trimap);
+    {
+        // Downscale
+        const float scale = m_settings.imageMatting_scale;
+        cv::Mat foregroundMask_down, trimap_down;
+        cv::resize(foregroundMask, foregroundMask_down, cv::Size(), scale, scale, cv::INTER_NEAREST);
+        // Generate trimap
+        compute_trimap(foregroundMask_down, trimap_down);
+        // Upscale
+        cv::resize(trimap_down, trimap, foregroundMask.size(), 0, 0, cv::INTER_NEAREST);
+    }
+
     // Convert image rgb with trimap to make a rgba image
     cv::Mat imageFloat_rgba;
     std::vector<cv::Mat> image_rgba_planar;
@@ -174,7 +149,17 @@ int VideoBackgroundEraser_Algo::run(const cv::Mat& i_image, cv::Mat& o_image_wit
 
     // Run Deep Image Matting
     cv::Mat alpha_prediction;
-    m_deepimagematting_inference.run(imageFloat_rgba, alpha_prediction);
+    {
+        // Downscale
+        const float scale = m_settings.imageMatting_scale;
+        cv::Mat imageFloat_rgba_down;
+        cv::Mat alpha_prediction_down;
+        cv::resize(imageFloat_rgba, imageFloat_rgba_down, cv::Size(), scale, scale, cv::INTER_AREA);
+        // Run DIM
+        m_deepimagematting_inference.run(imageFloat_rgba_down, alpha_prediction_down);
+        // Upscale
+        cv::resize(alpha_prediction_down, alpha_prediction, imageFloat_rgba.size(), 0, 0, cv::INTER_CUBIC);
+    }
 
     // Post process alpha_prediction
     alpha_prediction.setTo(0, 0 == trimap);
@@ -209,9 +194,9 @@ int VideoBackgroundEraser_Algo::temporalManagement(const cv::Mat& i_image_rgb_ui
     cv::cvtColor(i_image_rgb_uint8, image_uint8, cv::COLOR_BGR2GRAY);
     cv::Mat foregroundDetection = 0 == i_backgroundMask;
 
-    constexpr int nbPQ = 2;
-    constexpr int P[nbPQ] = {1, 2};
-    constexpr int Q[nbPQ] = {2, 8};
+    constexpr int nbPQ = 1;
+    constexpr int P[nbPQ] = {2};//, 2};
+    constexpr int Q[nbPQ] = {3};//, 8};
     uint sumQ = 0;
     for(int i = 0 ; i < nbPQ ; ++i) {
         sumQ += Q[i];
@@ -276,7 +261,7 @@ int VideoBackgroundEraser_Algo::temporalManagement(const cv::Mat& i_image_rgb_ui
         // Increase values of statusMap which were once confirmed but have not been seen recently
         cv::add(m_statusMap, 1, m_statusMap, (0 == confirmedDetection) & (0 != m_statusMap));
         // Remove the old confirmed values which have not been seen for too long
-        m_statusMap.setTo(0, m_statusMap > 20);
+        m_statusMap.setTo(0, m_statusMap > 2);
 
         // Effective foreground is when statusMap is valid and we also add the current foreground detection
         o_foregroundMask = (0 != m_statusMap);
@@ -293,12 +278,12 @@ int VideoBackgroundEraser_Algo::temporalManagement(const cv::Mat& i_image_rgb_ui
     return 0;
 }
 
-void VideoBackgroundEraser_Algo::compute_trimap(const cv::Mat& i_image, const cv::Mat& i_foreground, cv::Mat &o_trimap)
+void VideoBackgroundEraser_Algo::compute_trimap(const cv::Mat& i_foreground, cv::Mat &o_trimap)
 {
     // Generate standard trimap with morpho maths
     constexpr int kSize = 3;
-    constexpr int dilate_iterations = 2;
-    constexpr int erode_iterations = 7;
+    constexpr int dilate_iterations = 1;
+    constexpr int erode_iterations = 15;
     auto kernel = cv::getStructuringElement(cv::MORPH_ELLIPSE, cv::Size(kSize, kSize));
     cv::Mat dilated;
     cv::dilate(i_foreground, dilated, kernel, cv::Point(-1, -1), dilate_iterations);
@@ -309,55 +294,6 @@ void VideoBackgroundEraser_Algo::compute_trimap(const cv::Mat& i_image, const cv
     o_trimap.setTo(128);
     o_trimap.setTo(255, eroded >= 255);
     o_trimap.setTo(0, dilated <= 0);
-
-    return ;
-    // Only works for homogeneous background, like sky etc.
-    // Improve trimap with image content
-    // Compute mask for an area around the foreground
-    cv::Mat foregroundContour;
-    cv::dilate(i_foreground, foregroundContour, kernel, cv::Point(-1, -1), 10*dilate_iterations);
-    foregroundContour = foregroundContour & (0 == i_foreground);
-
-    // Compute background mean and standard deviation in a large area around the current foreground
-    cv::Vec3d backgroundMean, backgroundStD;
-    cv::meanStdDev(i_image, backgroundMean, backgroundStD, foregroundContour);
-
-    // Also compute local mean and StD over a small area
-    cv::Mat localMean, localStD;
-    {
-        const cv::Size localAreaSize = {11, 11};
-
-        cv::Mat image32f;
-        i_image.convertTo(image32f, CV_32F);
-
-        cv::blur(image32f, localMean, localAreaSize);
-        cv::Mat squareLocalMean;
-        cv::blur(image32f.mul(image32f), squareLocalMean, localAreaSize);
-        cv::sqrt(squareLocalMean - localMean.mul(localMean), localStD);
-    }
-
-    // Inefficient double loop, but that will do the job for now
-    // Compare local and global mean/std in "confirmed" area of the trimap
-    for(int y = 0 ; y < i_image.rows ; ++y) {
-        for(int x = 0 ; x < i_image.cols ; ++x) {
-            if(255 == o_trimap.at<uint8_t>(y, x)) {
-                // Check if the local mean is enclosed in the the global mean +/- StD
-                // Also check that the local StD is fairly low
-                cv::Vec3f& lmu = localMean.at<cv::Vec3f>(y, x);
-                cv::Vec3f& lstd = localStD.at<cv::Vec3f>(y, x);
-                bool isUncertain = true;
-                for(int c = 0 ; c < 3 ; ++c) {
-                    if(5 < lstd(c) || std::abs(lmu(c) - backgroundMean(c)) > 0.5*backgroundStD(c)) {
-                        isUncertain = false;
-                    }
-                }
-                if(isUncertain) {
-                    o_trimap.at<uint8_t>(y, x) = 128;
-                }
-
-            }
-        }
-    }
 }
 
 } /* namespace VBGE */

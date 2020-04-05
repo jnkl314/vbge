@@ -83,6 +83,10 @@ int initializeAndParseArguments(int argc, char **argv, CmdArguments& o_cmdArgume
         tclap_args.push_back(std::shared_ptr<TCLAP::Arg>(new TCLAP::SwitchArg           ("t", "enable_temporalManagement",
                                                                                         "Enable temporal management of scene to improve accuracy between frames. Might not work well for video where the background is moving",
                                                                                         cmd, false)));
+        tclap_args.push_back(std::shared_ptr<TCLAP::Arg>(new TCLAP::ValueArg<float>     ("r", "imageMatting_scale",
+                                                                                         "Rescale for Deep Image Matting",
+                                                                                         false, 1.f, "float", cmd)));
+
 
 
 
@@ -132,6 +136,7 @@ int initializeAndParseArguments(int argc, char **argv, CmdArguments& o_cmdArgume
     deeplabv3.inferenceDeviceType           = o_cmdArguments.useCuda ? torch::kCUDA : torch::kCPU;
     deepimagematting.inferenceDeviceType        = deepimagematting.inferenceDeviceType;
     o_cmdArguments.vbge_settings.enable_temporalManagement = dynamic_cast<TCLAP::SwitchArg*>    (tclap_args[idx++].get())->getValue();
+    o_cmdArguments.vbge_settings.imageMatting_scale = dynamic_cast<TCLAP::ValueArg<float>*>     (tclap_args[idx++].get())->getValue();
 
     return 0;
 }
