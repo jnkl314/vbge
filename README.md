@@ -1,8 +1,9 @@
 # Video Background Eraser
 
 ## Result Preview
-The pipeline produces RGBA images.<br/>
-Background pixels have alpha = 0.<br/>
+This C++ pipeline combines two DCNNs and some computer vision preprocessing in order to remove the background of images from a video.<br/>
+The output is a directory of RGBA images.
+The alpha component of background pixels are set to 0.<br/>
 The contour of the foreground objects have progressive alpha values to blend them with new backgrounds.<br/>
 <img src="./pictures/A_image_original.png" width="432" height="243"><img src="./pictures/A_image_withoutBackground.png" width="432" height="243"><br/>
 <img src="./pictures/B_image_original.png" width="432" height="243"><img src="./pictures/B_image_withoutBackground.png" width="432" height="243"><br/>
@@ -40,18 +41,40 @@ cmake ../VideoBackgroundEraser/
 make -j8
 ```
 
+## Launch Example
+```bash
+#!/bin/bash
+BIN=build/VideoBackgroundEraser
+
+INPUT=../data/YourVideo.mp4
+OUTPUT=../data/results/
+OUTPUT2=../data/results_grid/
+MODEL1=../data/best_deeplabv3_skydiver.pt
+MODEL2=../data/best_DeepImageMatting.pt
+BG="-b 0"
+CUSTOM="--useCuda --hideDisplay -t"
+
+OPTIONS="-m ${MODEL1} -n ${MODEL2} -i ${INPUT} -o ${OUTPUT} -p ${OUTPUT2} ${BG} ${CUSTOM}"
+
+echo $BIN $OPTIONS
+$BIN $OPTIONS
+```
+
+
 ## Usage
 ```bash
 USAGE: 
 
- VideoBackgroundEraser  [-r <float>] [-t]
-                              [--slidingWindow_overlapHeight <int>]
-                              [--slidingWindow_overlapWidth <int>]
-                              [--slidingWindow_height <int>]
-                              [--slidingWindow_width <int>] [-s] [-b
-                              <list<int>>] ...  -n <string> -m <string>
-                              [-p <string>] [-o <string>] [--hideDisplay]
-                              [-c] -i <string> [--] [--version] [-h]
+ VideoBackgroundEraser  [-r <float>]
+                        [-t]
+                        [-b <list<int>>] ... 
+                        -n <string> -m <string>
+                        [-p <string>]
+                        [-o <string>]
+                        [--hideDisplay]
+                        [-c]
+                        -i <string>
+                        [--] [--version] [-h]
   Where: 
 
    -r <float>,  --imageMatting_scale <float>
@@ -60,22 +83,6 @@ USAGE:
    -t,  --enable_temporalManagement
      Enable temporal management of scene to improve accuracy between
      frames. Might not work well for video where the background is moving
-
-   --slidingWindow_overlapHeight <int>
-     Width of the overlap between sliding windows
-
-   --slidingWindow_overlapWidth <int>
-     Height of the overlap between sliding windows
-
-   --slidingWindow_height <int>
-     Height of the inference for the given model
-
-   --slidingWindow_width <int>
-     Width of the inference for the given model
-
-   -s,  --useSlidingWindow
-     Instead of resizing the input image to 513x513, use a sliding window
-     and merge masks
 
    -b <list<int>>,  --background_classId_list <list<int>>  (accepted
       multiple times)
@@ -103,5 +110,10 @@ USAGE:
 
    -i <string>,  --inputPath <string>
      (required)  Path to video or a directory+pattern
+```
 
-  ```
+## FFMPEG Utility
+Once the background is replaced with the tool/code of your choice, ffmpeg can be used to compress the images in a video file :
+```bash
+ffmpeg -i your_result/%08d.png -c:v libx264 -crf 20 -pix_fmt yuv420p your_result.mp4
+```
