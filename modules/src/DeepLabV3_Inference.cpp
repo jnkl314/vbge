@@ -32,13 +32,6 @@ DeepLabV3_Inference::DeepLabV3_Inference(const DeepLabV3_Inference_Settings& i_s
 {
     m_model = torch::jit::load(m_settings.model_path, m_settings.inferenceDeviceType);
 
-    // Check settings
-    if(m_settings.FullSize != m_settings.strategy && m_settings.SlidingWindow != m_settings.strategy) {
-        logging_error("m_settings.strategy has an unknown value (=" << m_settings.strategy << "). "
-                      << "It should be 'FullSize'(=" << m_settings.FullSize << ").  or 'SlidingWindow'(=" << m_settings.SlidingWindow << "). ");
-        return;
-    }
-
     m_isInitialized = true;
 }
 
@@ -51,39 +44,17 @@ bool DeepLabV3_Inference::get_isInitialized() {
     return m_isInitialized;
 }
 
-
 int DeepLabV3_Inference::run(const cv::Mat& i_image, cv::Mat& o_segmentation)
 {
     if(false == get_isInitialized()) {
         logging_error("This instance was not correctly initialized.");
         return -1;
     }
-
     if(CV_32FC3 != i_image.type()) {
         logging_error("CV_32FC3 != i_image.type()");
         return -1;
     }
 
-//    // Check on image size and change strategy if necessary
-//    DeepLabV3_Inference_Settings::Strategy effectiveStrategy = m_settings.strategy;
-//    if(DeepLabV3_Inference_Settings::SlidingWindow == effectiveStrategy &&
-//            (i_image.rows < m_settings.slidingWindow_size.height || i_image.cols < m_settings.slidingWindow_size.width)) {
-//        logging_warning("Image size (" << i_image.size() << ") is smaller in one or both dimension than the inference size (" << m_settings.inferenceSize << "). "
-//                        << "Stragety forced to 'Resize'");
-//        effectiveStrategy = DeepLabV3_Inference_Settings::Resize;
-//    }
-
-    switch(m_settings.strategy) {
-    case DeepLabV3_Inference_Settings::FullSize: run_segmentation(i_image, o_segmentation); break;
-    case DeepLabV3_Inference_Settings::SlidingWindow: run_window(i_image, o_segmentation); break;
-    default:; // Can't get here because of the assert above
-    }
-
-    return 0;
-}
-
-void DeepLabV3_Inference::run_segmentation(const cv::Mat& i_image, cv::Mat& o_segmentation)
-{
     // Normalize input image
     cv::Scalar meanValues(m_settings.model_mean);
     cv::Scalar stdValues(m_settings.model_std);
@@ -123,92 +94,8 @@ void DeepLabV3_Inference::run_segmentation(const cv::Mat& i_image, cv::Mat& o_se
     torch::Tensor segmentationTensor = torch::from_blob(o_segmentation.data, dstSize, dstStride, options);
     // Copy neuralNet_outputTensor_NHWC to outputTensor_NHWC
     segmentationTensor.copy_(output_predictions, true);
-}
 
-void DeepLabV3_Inference::create_windowList(const cv::Mat                &i_image,
-                       const cv::Size                i_windowSize,
-                       const cv::Size                i_overlapSize,
-                             std::list<WindowImage> &o_windowList)
-{
-    CV_Assert(i_windowSize.width > i_overlapSize.width || i_windowSize.height > i_overlapSize.height);
-
-    //** Compute ideal number of windows which minimize the overlap **//
-    // Compute step
-    int step_x = 0, N_x = 0;
-    int step_y = 0, N_y = 0;
-    // Along x, then y
-    for(int i = 0 ; i < 2 ; ++i) {
-        float w; // windowSize
-        float L; // originSize
-        float m; // minOverlap
-        int *step, *N;
-        if(0 == i) {
-            L = i_image.cols;
-            w = i_windowSize.width;
-            m = i_overlapSize.width;
-            step = &step_x;
-            N = &N_x;
-        } else {
-            L = i_image.rows;
-            w = i_windowSize.height;
-            m = i_overlapSize.height;
-            step = &step_y;
-            N = &N_y;
-        }
-
-        if(L < w) {
-            *N = 0;
-        } else if(L == w) {
-            *N = 1;
-        } else {
-            *N = std::ceil(2 + (L-2*(w-m))/(w-m*2));
-            *step = std::floor((L-1-w)/(*N-1));
-        }
-
-    }
-
-    // Create window list
-    for(int ny = 0 ; ny < N_y ; ny++) {
-        for(int nx = 0 ; nx < N_x ; nx++) {
-            int x = nx*step_x;
-            int y = ny*step_y;
-            cv::Rect roi = cv::Rect(x, y, i_windowSize.width, i_windowSize.height);
-            WindowImage wi;
-            wi.im = i_image(roi).clone();
-            wi.origin_in_source = cv::Point2i(x, y);
-            o_windowList.push_back(wi);
-        }
-    }
-
-}
-
-void DeepLabV3_Inference::run_window(const cv::Mat& i_image, cv::Mat& o_segmentation)
-{
-    // Create list of windows
-    std::list<WindowImage> windowList;
-    create_windowList(i_image, m_settings.slidingWindow_size, m_settings.slidingWindow_overlap, windowList);
-
-    // Create list of background masks and launch segmentation
-    std::list<WindowImage> noBackgroundMask_windowList;
-    for(auto& window : windowList) {
-        cv::Mat noBackgroundMask_window;
-        run_segmentation(window.im, noBackgroundMask_window);
-        noBackgroundMask_windowList.push_back({noBackgroundMask_window, window.origin_in_source});
-    }
-
-    // Merge backgroundMask_windowList in o_backgroundMask
-    o_segmentation.create(i_image.size(), CV_32S);
-    o_segmentation.setTo(0);
-
-    for(auto& backgroundMask_window : noBackgroundMask_windowList) {
-        cv::Rect roi(backgroundMask_window.origin_in_source, backgroundMask_window.im.size());
-        o_segmentation(roi) = cv::max(o_segmentation(roi), backgroundMask_window.im);
-    }
-
-    // Also run resize
-    cv::Mat noBackgroundMask_resized;
-    run_segmentation(i_image, noBackgroundMask_resized);
-    o_segmentation = cv::max(o_segmentation, noBackgroundMask_resized);
+    return 0;
 }
 
 } /* namespace VBGE */

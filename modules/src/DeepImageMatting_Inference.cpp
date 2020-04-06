@@ -51,6 +51,10 @@ int DeepImageMatting_Inference::run(const cv::Mat& i_image_rgba, cv::Mat& o_alph
         logging_error("This instance was not correctly initialized.");
         return -1;
     }
+    if(CV_32FC4 != i_image_rgba.type()) {
+        logging_error("CV_32FC4 != i_image_rgba.type()");
+        return -1;
+    }
 
     // We don't want to save the gradients during net.forward()
     torch::NoGradGuard no_grad_guard;

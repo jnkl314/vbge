@@ -93,6 +93,7 @@ int VideoBackgroundEraser_Algo::run(const cv::Mat& i_image, cv::Mat& o_image_wit
 //        cv::imshow("segmentation_uint8", segmentation_uint8);
 //    }
 
+    // Create background mask
     cv::Mat backgroundMask;
     if(m_settings.deeplabv3_inference.background_classId_vector.empty()) {
         logging_error("m_settings.deeplabv3_inference.background_classId_vector is empty.");
@@ -105,10 +106,6 @@ int VideoBackgroundEraser_Algo::run(const cv::Mat& i_image, cv::Mat& o_image_wit
             backgroundMask = backgroundMask | (segmentation == background_id);
         }
     }
-
-//    imageFloat.copyTo(o_image_withoutBackground);
-//    o_image_withoutBackground.setTo(0, backgroundMask);
-//    return 0;
 
     // Prepare intermediary data
     cv::Mat foregroundMask;
@@ -166,7 +163,6 @@ int VideoBackgroundEraser_Algo::run(const cv::Mat& i_image, cv::Mat& o_image_wit
     alpha_prediction.setTo(255, 255 == trimap);
 
     // Replace alpha in image_rgba_planar with alpha_prediction
-//    alpha_prediction.convertTo(image_rgba_planar[3], CV_8U, 255.);
     image_rgba_planar[3] = alpha_prediction;
     cv::Mat image_withoutBackground;
     cv::merge(image_rgba_planar, image_withoutBackground);

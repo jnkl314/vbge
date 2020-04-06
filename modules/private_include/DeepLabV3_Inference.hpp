@@ -35,20 +35,45 @@ public:
     /* Function Description                                                       */
     /*============================================================================*/
     /**
-     * @brief         	Run the text detection
-     * @param[in] 		i_eastModelPath         : Path to a binary .pb containing the trained network
-     * @param[in] 		i_confidenceThreshold	: Confidence threshold
-     * @param[in] 		i_nmsThreshold          : Non-maximum suppression threshold
+     * @brief         	Constructor
+     * @param[in] 		i_settings         : user settings
      *
      */
     /*============================================================================*/
     DeepLabV3_Inference(const DeepLabV3_Inference_Settings& i_settings);
 
+    /*============================================================================*/
+    /* Function Description                                                       */
+    /*============================================================================*/
+    /**
+     * @brief         	Destructor
+     *
+     */
+    /*============================================================================*/
     ~DeepLabV3_Inference();
 
+    /*============================================================================*/
+    /* Function Description                                                       */
+    /*============================================================================*/
+    /**
+     * @brief         	Class instance status
+     * @return 		(bool)         : True if the class instance was correctly initialized
+     *
+     */
+    /*============================================================================*/
     bool get_isInitialized();
 
 
+    /*============================================================================*/
+    /* Function Description                                                       */
+    /*============================================================================*/
+    /**
+     * @brief         	Perform inference of DeepLabV3
+     * @param[in] 		i_image        : Input image, RGB packed, 3-float32 (CV_32FC3)
+     * @param[out]		o_segmentation : Output image, classes id in int32, same size as i_image
+     *
+     */
+    /*============================================================================*/
     int run(const cv::Mat& i_image, cv::Mat& o_segmentation);
 
 private:
@@ -60,22 +85,6 @@ private:
 
     // Settings
     const DeepLabV3_Inference_Settings m_settings;
-
-    void run_segmentation(const cv::Mat& i_image, cv::Mat& o_segmentation);
-
-    // Utility struct
-    typedef struct {
-        cv::Mat im;
-        cv::Point2i origin_in_source;
-    } WindowImage;
-
-    void create_windowList(const cv::Mat                &i_image,
-                           const cv::Size                i_windowSize,
-                           const cv::Size                i_overlapSize,
-                                 std::list<WindowImage> &o_windowList);
-
-    void run_window(const cv::Mat& i_image, cv::Mat& o_noBackgroundMask);
-
 };
 
 } /* namespace VBGE */

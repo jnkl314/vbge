@@ -35,20 +35,44 @@ public:
     /* Function Description                                                       */
     /*============================================================================*/
     /**
-     * @brief         	Run the text detection
-     * @param[in] 		i_eastModelPath         : Path to a binary .pb containing the trained network
-     * @param[in] 		i_confidenceThreshold	: Confidence threshold
-     * @param[in] 		i_nmsThreshold          : Non-maximum suppression threshold
+     * @brief         	Constructor
+     * @param[in] 		i_settings         : user settings
      *
      */
     /*============================================================================*/
     DeepImageMatting_Inference(const DeepImageMatting_Inference_Settings& i_settings);
 
+    /*============================================================================*/
+    /* Function Description                                                       */
+    /*============================================================================*/
+    /**
+     * @brief         	Destructor
+     *
+     */
+    /*============================================================================*/
     ~DeepImageMatting_Inference();
 
+    /*============================================================================*/
+    /* Function Description                                                       */
+    /*============================================================================*/
+    /**
+     * @brief         	Class instance status
+     * @return 		(bool)         : True if the class instance was correctly initialized
+     *
+     */
+    /*============================================================================*/
     bool get_isInitialized();
 
-
+    /*============================================================================*/
+    /* Function Description                                                       */
+    /*============================================================================*/
+    /**
+     * @brief         	Perform inference of DeepImageMatting
+     * @param[in] 		i_image            : Input image, RGBA packed, 4-float32 (CV_32FC4)
+     * @param[out]		o_alpha_prediction : Output image, alpha component (float32 -> CV_32F), same size as i_image
+     *
+     */
+    /*============================================================================*/
     int run(const cv::Mat& i_image_rgba, cv::Mat& o_alpha_prediction);
 
 private:
