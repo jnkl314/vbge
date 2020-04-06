@@ -26,11 +26,13 @@ The pipeline is composed by :<br/>
 * Semantic Segmentation using DeepLabV3
   * see my other repository https://github.com/jnkl314/DeepLabV3FineTuning
   * weights were fine-tuned for skydiver segmentation, and frozen with PyTorch JIT Tracing
+  * Dropbox link : https://www.dropbox.com/s/8p05l9qamo5n5wc/best_deeplabv3_skydiver.pt?dl=0
 * Optical flow to track pixels of foreground objects over time
 * Trimap generation using morpho math
 * Deep Image Matting to improve alpha on objects contour
   * pretrained weights come from https://github.com/foamliu/Deep-Image-Matting-PyTorch
   * also frozen using PyTorch JIT Tracing
+  * Dropbox link : https://www.dropbox.com/s/u059b4wfwqwwb47/best_DeepImageMatting.pt?dl=0
   
 ## Build
 ```bash
